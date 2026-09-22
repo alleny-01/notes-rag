@@ -1,28 +1,41 @@
 import { useState, type FormEvent } from "react";
 import {
+  AlertCircle,
   ArrowUpRight,
-  BookOpen,
+  Book,
   FileText,
   MessageCircle,
   SearchX,
   Send,
 } from "lucide-react";
 import { navigate } from "../../../app/navigation";
-import type { ChatMessage, Collection } from "../types/domain";
+import { Spinner } from "../../../components/ui/spinner";
+import { useSendMessage } from "../../chat/hooks/useSendMessage";
+import type { ChatCitation, ChatMessage, Collection } from "../types/domain";
 
 type WorkspacePageProps = { collection: Collection };
 type WorkspaceTab = "chat" | "notes";
 
-function SourcePane({ collection }: { collection: Collection }) {
-  const document = collection.documents[0];
-  if (!document)
+function SourcePane({
+  collection,
+  citation,
+}: {
+  collection: Collection;
+  citation: ChatCitation | null;
+}) {
+  const document = citation
+    ? (collection.documents.find((item) => item.id === citation.documentId) ??
+      collection.documents[0])
+    : collection.documents[0];
+
+  if (!document) {
     return (
       <section className="grid min-h-[420px] place-items-center bg-[#f5f0e8] p-8 text-center text-[#332c2d]">
         <div>
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e9dfd1] text-[var(--purple)]">
-            <BookOpen size={20} />
+            <Book size={20} strokeWidth={1}/>
           </div>
-          <h2 className="mt-4 font-[var(--serif)] text-[32px] leading-none tracking-[-0.055em]">
+          <h2 className="mt-4 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.055em]">
             No notes to read yet.
           </h2>
           <p className="mt-3 max-w-xs text-[13px] leading-6 text-[#756b64]">
@@ -31,11 +44,13 @@ function SourcePane({ collection }: { collection: Collection }) {
         </div>
       </section>
     );
+  }
+
   return (
     <section className="h-full bg-[#f5f0e8] text-[#332c2d]">
       <div className="flex h-12 items-center justify-between bg-[rgba(223,212,197,0.45)] px-4">
         <div className="flex min-w-0 items-center gap-2 text-[11px] text-[#776d65]">
-          <FileText size={14} />
+          <FileText size={14} strokeWidth={1}/>
           <span className="truncate">{document.filename}</span>
         </div>
         <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-[#91857a]">
@@ -43,25 +58,31 @@ function SourcePane({ collection }: { collection: Collection }) {
         </span>
       </div>
       <article className="mx-auto max-w-2xl px-6 py-10 sm:px-10">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#92867b]">
-          Reading passage · page 1
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-[#92867b]">
+          {citation
+            ? `Cited passage${citation.pageNumber ? ` · page ${citation.pageNumber}` : ""}`
+            : "Select a citation"}
         </p>
-        <h2 className="mt-4 font-[var(--serif)] text-[20px] font-light leading-none tracking-[-0.045em]">
-          The source will stay beside the answer.
+        <h2 className="mt-4 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.045em]">
+          {citation
+            ? "The passage behind the answer."
+            : "Your sources stay close to the conversation."}
         </h2>
         <div className="my-8 h-px bg-[#dcd0c2]" />
-        <p className="font-[var(--serif)] text-[19px] leading-8 text-[#574a45]">
-          When retrieval is connected, a cited answer will open the exact
-          passage that supported it here. The source viewer keeps the original
-          material close enough to verify the answer without losing your place.
-        </p>
-        <p className="mt-7 bg-[rgba(156,115,200,0.14)] px-4 py-3 shadow-[inset_3px_0_0_var(--purple)] font-[var(--serif)] text-[17px] leading-7 text-[#4d3a56]">
-          {document.content}
-        </p>
+        {citation ? (
+          <p className="bg-[rgba(156,115,200,0.14)] px-4 py-3 shadow-[inset_3px_0_0_var(--purple)] font-[var(--serif)] text-[15px] leading-7 text-[#4d3a56]">
+            {citation.content}
+          </p>
+        ) : (
+          <p className="font-[var(--serif)] text-[15px] leading-8 text-[#574a45]">
+            Ask a question, then choose one of its citations to bring the exact
+            retrieved passage into view here.
+          </p>
+        )}
         <p className="mt-8 text-[13px] leading-6 text-[#756b64]">
-          The upload, extraction, chunking, embedding, and precise passage
-          highlight will be wired into this viewer during the ingestion and RAG
-          phase.
+          {citation
+            ? "This is the chunk sent to the model for the answer above."
+            : "NotesRAG only sends retrieved passages into the answer step."}
         </p>
       </article>
     </section>
@@ -79,12 +100,12 @@ function EmptyChat({
     <div className="grid min-h-[420px] place-items-center px-6 text-center">
       <div className="max-w-sm">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[var(--lilac)] text-[var(--purple)]">
-          <MessageCircle size={20} />
+          <MessageCircle size={20} strokeWidth={1}/>
         </div>
-        <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--purple)]">
+        <p className="mt-5 text-[10px] font-semibold tracking-[0.13em] text-[var(--purple)]">
           {hasDocuments ? "No messages yet" : "No documents yet"}
         </p>
-        <h2 className="mt-3 font-[var(--serif)] text-[20px] font-light leading-none tracking-[-0.045em]">
+        <h2 className="mt-3 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.045em]">
           {hasDocuments
             ? "Start with what you want to understand."
             : "Bring in a source first."}
@@ -99,10 +120,73 @@ function EmptyChat({
           onClick={onOpenUpload}
           className="mt-6 inline-flex items-center gap-2 text-[12px] font-medium text-[var(--purple)] hover:text-[var(--purple-dark)]"
         >
-          {hasDocuments ? "Add more notes" : "Add source material"}{" "}
-          <ArrowUpRight size={14} />
+          <span className="text-sm">{hasDocuments ? "Add more notes" : "Add source material"}{" "}</span>
+          <ArrowUpRight size={14} strokeWidth={1} />
         </button>
       </div>
+    </div>
+  );
+}
+
+function AssistantMessage({
+  message,
+  onOpenCitation,
+}: {
+  message: ChatMessage;
+  onOpenCitation: (citation: ChatCitation) => void;
+}) {
+  const isNotFound = message.kind === "not-found";
+  const isSignal =
+    message.kind === "rate-limited" || message.kind === "provider-error";
+  const sourceRule = isSignal
+    ? "shadow-[inset_3px_0_0_var(--signal)]"
+    : "shadow-[inset_3px_0_0_var(--purple)]";
+
+  return (
+    <div className={`max-w-[92%] bg-[var(--paper)] px-4 py-3 ${sourceRule}`}>
+      <p
+        className={`mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${isSignal ? "text-[var(--signal)]" : "text-[var(--purple)]"}`}
+      >
+        {isSignal ? (
+          <AlertCircle size={13} />
+        ) : isNotFound ? (
+          <SearchX size={13} strokeWidth={1} />
+        ) : (
+          <MessageCircle size={13} strokeWidth={1} />
+        )}
+        {isNotFound
+          ? "Not found in your notes"
+          : isSignal
+            ? "Chat unavailable"
+            : "NotesRAG"}
+      </p>
+      <p className="text-[13px] leading-6 text-[var(--body)]">
+        {message.content}
+      </p>
+      {isNotFound && (
+        <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
+          No generation was used because the collection did not return a
+          relevant passage.
+        </p>
+      )}
+      {!!message.citations?.length && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {message.citations.map((citation) => (
+            <button
+              key={citation.chunkId}
+              type="button"
+              onClick={() => onOpenCitation(citation)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-white px-2 py-1 text-[10px] text-[var(--purple)] shadow-[0_2px_7px_rgba(66,47,39,0.07)] transition hover:-translate-y-px hover:text-[var(--purple-dark)]"
+            >
+              <span className="grid size-4 place-items-center rounded-full bg-[var(--lilac)] text-[9px] font-semibold">
+                {citation.orderIndex + 1}
+              </span>
+              {citation.filename}
+              {citation.pageNumber ? ` · p. ${citation.pageNumber}` : ""}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -111,43 +195,113 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
   const [tab, setTab] = useState<WorkspaceTab>("chat");
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const hasDocuments = collection.documents.length > 0;
-  const submitQuestion = (event: FormEvent<HTMLFormElement>) => {
+  const [sessionId, setSessionId] = useState<string>();
+  const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(
+    null,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const sendMessage = useSendMessage();
+  const hasDocuments = collection.documents.some(
+    (document) => document.status === "ready",
+  );
+
+  const submitQuestion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || !hasDocuments) return;
+    if (!question || !hasDocuments || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setDraft("");
     setMessages((current) => [
       ...current,
       { id: crypto.randomUUID(), role: "user", content: question },
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        kind: "not-found",
-        content: "Nothing in your notes covers that yet.",
-      },
     ]);
-    setDraft("");
+    try {
+      const result = await sendMessage.mutateAsync({
+        collectionId: collection.id,
+        sessionId,
+        question,
+      });
+      setSessionId(result.sessionId);
+      const response = result.response;
+      if (response.type === "rate_limited") {
+        setMessages((current) => [
+          ...current,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            kind: "rate-limited",
+            content: "You’ve reached today’s limit — resets at midnight UTC.",
+          },
+        ]);
+        return;
+      }
+      if (response.type === "provider_error") {
+        setMessages((current) => [
+          ...current,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            kind: "provider-error",
+            content:
+              "Something went wrong reaching the model — try again in a moment.",
+          },
+        ]);
+        return;
+      }
+
+      const kind = response.citations.length ? undefined : "not-found";
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          kind,
+          content: response.content,
+          citations: response.citations,
+        },
+      ]);
+      if (response.citations[0]) setActiveCitation(response.citations[0]);
+    } catch {
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          kind: "provider-error",
+          content:
+            "Something went wrong reaching the model — try again in a moment.",
+        },
+      ]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
   const openUpload = () =>
     navigate({ name: "upload", collectionId: collection.id });
+  const openCitation = (citation: ChatCitation) => {
+    setActiveCitation(citation);
+    setTab("notes");
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-[1600px] flex-col px-4 py-5 sm:px-6 lg:h-[calc(100vh-6.75rem)] lg:px-9 lg:py-7">
       <div className="mb-4 flex items-center justify-between lg:mb-5">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--purple)]">
+          <p className="text-[10px] font-semibold tracking-[0.13em] text-[var(--purple)]">
             Collection workspace
           </p>
-          <h1 className="mt-1 font-[var(--serif)] text-[20px] font-light leading-none tracking-[-0.045em]">
+          <h1 className="mt-4 font-[var(--serif)] text-[20px] font-light leading-none tracking-wide">
             {collection.name}
           </h1>
         </div>
         <button
           type="button"
           onClick={openUpload}
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-white shadow-[0_4px_12px_rgba(66,47,39,0.07)] px-3 text-[12px] text-[var(--body)] transition hover:border-[var(--purple)] hover:text-[var(--purple)]"
+          className="mt-6 inline-flex h-10 items-center gap-2 rounded-md bg-white px-3.5 shadow-[0_5px_14px_rgba(66,47,39,0.07)] text-[12px] font-medium text-[var(--ink)] transition duration-200 ease-out hover:-translate-y-px hover:border-[var(--purple)] hover:text-[var(--purple)] active:translate-y-0 disabled:cursor-wait disabled:opacity-60"
         >
-          <FileText size={15} /> Add notes
+          <FileText size={15} strokeWidth={1}/> <span className="text-sm">Add notes</span>
         </button>
       </div>
       <div className="mb-3 grid grid-cols-2 bg-[var(--paper)] p-1 shadow-[0_6px_16px_rgba(66,47,39,0.05)] lg:hidden">
@@ -192,35 +346,22 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
                       {message.content}
                     </div>
                   ) : (
-                    <div
+                    <AssistantMessage
                       key={message.id}
-                      className="max-w-[92%] bg-[var(--paper)] px-4 py-3 shadow-[inset_3px_0_0_var(--purple)]"
-                    >
-                      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--purple)]">
-                        <SearchX size={13} /> Not found in your notes
-                      </p>
-                      <p className="text-[13px] leading-6 text-[var(--body)]">
-                        {message.content}
-                      </p>
-                      <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
-                        No generation was used because the collection did not
-                        return a relevant passage.
-                      </p>
-                    </div>
+                      message={message}
+                      onOpenCitation={openCitation}
+                    />
                   ),
                 )}
               </div>
             )}
           </div>
-          <form
-            onSubmit={submitQuestion}
-            className="bg-white p-3"
-          >
-            <div className="flex items-end gap-2 rounded-md bg-[var(--paper)] px-3 py-2 shadow-[inset_0_0_0_1px_rgba(222,214,203,0.55)] transition focus-within:border-[var(--purple)] focus-within:ring-4 focus-within:ring-[rgba(95,61,130,0.10)]">
+          <form onSubmit={submitQuestion} className="bg-white p-3">
+            <div className="flex items-end gap-2 rounded-md bg-[var(--paper)] px-3 py-2 shadow-[inset_0_0_0_1px_rgba(222,214,203,0.55)] transition focus-within:ring-4 focus-within:ring-[rgba(95,61,130,0.10)]">
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                disabled={!hasDocuments}
+                disabled={!hasDocuments || isSubmitting}
                 rows={1}
                 placeholder={
                   hasDocuments
@@ -231,22 +372,29 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
               />
               <button
                 type="submit"
-                disabled={!draft.trim() || !hasDocuments}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[var(--purple)] text-white transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--purple-dark)] active:translate-y-0 disabled:bg-[#c4b6cf]"
-                aria-label="Send question"
+                disabled={!draft.trim() || !hasDocuments || isSubmitting}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[var(--purple)] text-white transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--purple-dark)] active:translate-y-0 disabled:cursor-wait disabled:bg-[#c4b6cf]"
+                aria-label="Ask"
               >
-                <Send size={14} />
+                <span className="sr-only">Ask</span>
+                {isSubmitting ? (
+                  <Spinner className="size-4 animate-spin" />
+                ) : (
+                  <Send size={14} strokeWidth={1}/>
+                )}
               </button>
             </div>
             <p className="mt-2 px-1 text-[10px] text-[var(--muted)]">
-              Answers will cite supporting passages when retrieval is connected.
+              {isSubmitting
+                ? "Searching your notes…"
+                : "Answers are limited to retrieved passages and carry their source."}
             </p>
           </form>
         </section>
         <div
           className={`${tab === "notes" ? "block" : "hidden"} min-h-0 overflow-y-auto lg:block`}
         >
-          <SourcePane collection={collection} />
+          <SourcePane collection={collection} citation={activeCitation} />
         </div>
       </div>
     </main>

@@ -28,7 +28,9 @@ function documentState(document: Collection["documents"][number]) {
   if (document.status === "embedding") {
     const total = document.chunkCount ?? 0;
     const complete = document.embeddedChunkCount ?? 0;
-    return total ? `Indexing ${complete}/${total} passages` : "Preparing passages";
+    return total
+      ? `Indexing ${complete}/${total} passages`
+      : "Preparing passages";
   }
   return "Queued for indexing";
 }
@@ -51,9 +53,16 @@ export function UploadPage({ collection, onAddDocument }: Props) {
           : "Choose a text-based PDF, TXT, or Markdown file.",
       );
       return;
-    }    setChecking(true);
+    }
+    setChecking(true);
     void onAddDocument(collection.id, file)
-      .catch((uploadError: unknown) => setError(uploadError instanceof Error ? uploadError.message : "We could not upload this document."))
+      .catch((uploadError: unknown) =>
+        setError(
+          uploadError instanceof Error
+            ? uploadError.message
+            : "We could not upload this document.",
+        ),
+      )
       .finally(() => setChecking(false));
   };
   const documents = collection.documents;
@@ -63,15 +72,12 @@ export function UploadPage({ collection, onAddDocument }: Props) {
         <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--purple)]">
           {collection.name}
         </p>
-        <h1 className="font-[var(--serif)] text-[20px] font-light leading-[0.98] tracking-[-0.075em]">
-          Bring in the source material.
-        </h1>
-        <p className="mt-5 max-w-xl text-[15px] leading-7 text-[var(--body)]">
+        <p className="mt-5 max-w-xl text-[12px] leading-7 text-[var(--body)]">
           Upload text-based PDFs or plain-text notes. Each document stays scoped
           to this collection.
         </p>
       </section>
-      <section className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+      <section className="mt-10 w-full">
         <div>
           <input
             ref={input}
@@ -97,9 +103,9 @@ export function UploadPage({ collection, onAddDocument }: Props) {
           >
             <div>
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[var(--lilac)] text-[var(--purple)]">
-                <UploadCloud size={23} />
+                <UploadCloud size={23} strokeWidth={1} />
               </div>
-              <h2 className="mt-5 font-[var(--serif)] text-[20px] font-light leading-none tracking-[-0.045em]">
+              <h2 className="mt-5 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.045em]">
                 Drop a document here.
               </h2>
               <p className="mx-auto mt-3 max-w-sm text-[13px] leading-6 text-[var(--body)]">
@@ -119,7 +125,8 @@ export function UploadPage({ collection, onAddDocument }: Props) {
                   </>
                 ) : (
                   <>
-                    <FileText size={15} /> Choose file
+                    <FileText size={15} strokeWidth={1} />{" "}
+                    <span className="text-sm">Choose file</span>
                   </>
                 )}
               </button>
@@ -130,7 +137,7 @@ export function UploadPage({ collection, onAddDocument }: Props) {
               className="mt-3 flex items-start gap-2 border border-[#e0b3b3] bg-[#fff7f7] p-3 text-[12px] leading-5 text-[#8f3d42]"
               role="alert"
             >
-              <XCircle size={16} className="mt-0.5 shrink-0" />
+              <XCircle size={16} className="mt-0.5 shrink-0" strokeWidth={1} />
               <span>{error}</span>
             </div>
           )}
@@ -148,7 +155,7 @@ export function UploadPage({ collection, onAddDocument }: Props) {
                   className="flex items-center gap-3 px-4 py-3 transition-colors duration-200 hover:bg-[var(--cream)] last:border-b-0"
                 >
                   <div className="grid h-8 w-8 place-items-center rounded-md bg-[var(--paper)] text-[var(--purple)]">
-                    <FileText size={15} />
+                    <FileText size={15} strokeWidth={1} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-medium">
@@ -159,9 +166,9 @@ export function UploadPage({ collection, onAddDocument }: Props) {
                     </p>
                   </div>
                   {document.status === "ready" ? (
-                    <CheckCircle2 size={17} className="text-[#63945a]" />
+                    <CheckCircle2 size={17} className="text-[#63945a]" strokeWidth={1} />
                   ) : document.status === "failed" ? (
-                    <CircleAlert size={17} className="text-[#a45353]" />
+                    <CircleAlert size={17} className="text-[#a45353]" strokeWidth={1} />
                   ) : (
                     <Spinner className="size-4 animate-spin text-[var(--purple)]" />
                   )}
@@ -170,34 +177,6 @@ export function UploadPage({ collection, onAddDocument }: Props) {
             </div>
           )}
         </div>
-        <aside className="bg-[var(--paper)] px-5 py-5 shadow-[0_12px_28px_rgba(66,47,39,0.05)]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[var(--purple)]">
-            File support
-          </p>
-          <ul className="mt-4 grid gap-3 text-[12px] leading-5 text-[var(--body)]">
-            <li>
-              <strong className="font-semibold text-[var(--ink)]">
-                Text-layer PDFs
-              </strong>
-              <br />
-              Lecture handouts, readings, exported articles.
-            </li>
-            <li>
-              <strong className="font-semibold text-[var(--ink)]">
-                Plain-text notes
-              </strong>
-              <br />
-              TXT and Markdown notes work too.
-            </li>
-            <li>
-              <strong className="font-semibold text-[var(--ink)]">
-                Not yet supported
-              </strong>
-              <br />
-              Scans, image-only PDFs, and handwriting need OCR first.
-            </li>
-          </ul>
-        </aside>
       </section>
       <section className="mt-10 flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[12px] leading-5 text-[var(--muted)]">
@@ -213,9 +192,46 @@ export function UploadPage({ collection, onAddDocument }: Props) {
           }
           className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--purple)] px-4 text-[13px] font-medium text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--purple-dark)] active:translate-y-0 disabled:cursor-not-allowed disabled:bg-[#b7a4c5]"
         >
-          Open workspace <ArrowRight size={16} />
+          <span className="text-sm">Open workspace </span>{" "}
+          <ArrowRight size={16} />
         </button>
       </section>
+
+      <section className="bg-[var(--paper)] mt-5 px-5 py-5 shadow-[0_12px_28px_rgba(66,47,39,0.05)]">
+          <p className="text-[11px] font-semibold tracking-[0.11em] text-[var(--purple)]">
+            File support
+          </p>
+          <ul className="mt-4 grid gap-3 text-[12px] leading-5 text-[var(--body)]">
+            <li>
+              <strong className="font-medium text-[var(--ink)]">
+                Text-layer PDFs
+              </strong>
+              <br />
+              <p className="text-[11px] tracking-wide">
+                Lecture handouts, readings, exported articles.
+              </p>
+            </li>
+            <li>
+              <strong className="font-medium text-[var(--ink)]">
+                Plain-text notes
+              </strong>
+              <br />
+              <p className="text-[11px] tracking-wide">
+                {" "}
+                and Markdown notes work too.
+              </p>
+            </li>
+            <li>
+              <strong className="font-medium text-[var(--ink)]">
+                Not yet supported
+              </strong>
+              <br />
+              <p className="text-[11px] tracking-wide">
+                Scans, image-only PDFs, and handwriting need OCR first.
+              </p>
+            </li>
+          </ul>
+        </section>
     </main>
   );
 }
