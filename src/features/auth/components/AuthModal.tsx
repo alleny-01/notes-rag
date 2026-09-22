@@ -80,7 +80,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     <div className="auth-layer" role="presentation">
       <button className="auth-backdrop" type="button" aria-label="Close sign in dialog" onClick={onClose} />
       <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <button className="auth-close" type="button" aria-label="Close sign in dialog" onClick={onClose}><X size={18} /></button>
+        <button className="auth-close" type="button" aria-label="Close sign in dialog" onClick={onClose}><X size={18} strokeWidth={1} /></button>
 
         {view === "options" && (
           <div className="auth-content">
@@ -90,12 +90,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="auth-actions">
               <button className="auth-provider-button" type="button" onClick={beginGoogleSignIn} disabled={isSubmitting}>
                 <GoogleIcon />
-                <span>{isSubmitting ? "Redirecting…" : "Continue with Google"}</span>{isSubmitting ? <Spinner className="size-4 animate-spin" /> : <ArrowUpRight size={16} />}
-                <ArrowUpRight size={16} />
+                <span>{isSubmitting ? "Redirecting…" : "Continue with Google"}</span>{isSubmitting ? <Spinner className="size-4 animate-spin" /> : <ArrowUpRight size={16} strokeWidth={1} />}
+                <ArrowUpRight size={16} strokeWidth={1} />
               </button>
               <div className="auth-divider"><span>or</span></div>
               <button className="auth-email-button" type="button" onClick={() => setView("magic-link")} disabled={isSubmitting}>
-                <Mail size={17} /> Continue with email
+                <Mail size={17} strokeWidth={1} /> Continue with email
               </button>
             </div>
             {error && <p className="auth-error" role="alert">{error}</p>}
@@ -113,18 +113,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <label htmlFor="auth-email">Email address</label>
               <input id="auth-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" autoFocus />
               {error && <p className="auth-error" role="alert">{error}</p>}
-              <button className="auth-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? "Sending link…" : "Send magic link"}{isSubmitting ? <Spinner className="size-4 animate-spin" /> : <ArrowUpRight size={16} />}</button>
+              <button className="auth-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? "Sending link…" : "Send magic link"}{isSubmitting ? <Spinner className="size-4 animate-spin" /> : <ArrowUpRight size={16} strokeWidth={1} />}</button>
             </form>
           </div>
         )}
 
         {view === "sent" && (
           <div className="auth-content auth-sent">
-            <div className="auth-success-icon"><Check size={24} /></div>
+            <div className="auth-success-icon"><Check size={24} strokeWidth={1} /></div>
             <p className="auth-kicker">Check your inbox</p>
             <h2 id={titleId}>Your link is on its way.</h2>
             <p className="auth-description">We sent a secure sign-in link to <strong>{email}</strong>. Open it in this browser to continue.</p>
-            <button className="auth-submit" type="button" onClick={onClose}>Done<Check size={16} /></button>
+            <button className="auth-submit" type="button" onClick={onClose}>Done<Check size={16} strokeWidth={1} /></button>
           </div>
         )}
       </section>

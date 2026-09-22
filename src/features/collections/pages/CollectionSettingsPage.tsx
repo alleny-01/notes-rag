@@ -63,12 +63,9 @@ export function CollectionSettingsPage({
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-14 lg:px-9">
       <div className="pb-8">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--purple)]">
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-[var(--purple)]">
           Collection settings
         </p>
-        <h1 className="mt-3 font-[var(--serif)] text-[20px] font-light leading-[0.98] tracking-[-0.075em]">
-          Keep the context clean.
-        </h1>
         <p className="mt-5 max-w-xl text-[14px] leading-7 text-[var(--body)]">
           Manage the collection name and its source material. Removing a
           document only affects this collection.
@@ -131,7 +128,7 @@ export function CollectionSettingsPage({
               }
               className="inline-flex h-10 items-center gap-2 rounded-md bg-white px-3 text-[12px] shadow-[0_4px_12px_rgba(66,47,39,0.07)] font-medium text-[var(--body)] transition duration-200 ease-out hover:-translate-y-px hover:border-[var(--purple)] hover:text-[var(--purple)] active:translate-y-0"
             >
-              <Plus size={15} /> Add documents
+              <Plus size={15} strokeWidth={1}/> <span className="text-sm">Add documents</span>
             </button>
             {collection.documents.length ? (
               <ul className="mt-4 space-y-2">
@@ -141,7 +138,7 @@ export function CollectionSettingsPage({
                     className="group flex items-center gap-3 bg-white px-3.5 py-3 shadow-[0_5px_16px_rgba(66,47,39,0.04)] transition-all duration-200 hover:-translate-y-px hover:bg-[var(--cream)] hover:shadow-[0_10px_20px_rgba(66,47,39,0.07)]"
                   >
                     <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[var(--paper)] text-[var(--purple)]">
-                      <FileText size={15} />
+                      <FileText size={15} strokeWidth={1} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[12px] font-medium text-[var(--ink)]">
@@ -160,15 +157,15 @@ export function CollectionSettingsPage({
                       className="grid h-8 w-8 place-items-center rounded-md text-[var(--muted)] transition duration-200 ease-out hover:scale-105 hover:bg-[#fff2f2] hover:text-[#a0464b]"
                       aria-label={`Remove ${document.filename}`}
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={15} strokeWidth={1}/>
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="mt-4 bg-[var(--paper)] p-6 text-center shadow-[0_10px_24px_rgba(66,47,39,0.04)]">
-                <FileText size={20} className="mx-auto text-[var(--purple)]" />
-                <h3 className="mt-3 font-[var(--serif)] text-[20px] leading-none tracking-[-0.045em]">
+                <FileText size={20} strokeWidth={1} className="mx-auto text-[var(--purple)]" />
+                <h3 className="mt-3 font-[var(--serif)] text-[15px] leading-none tracking-[-0.045em]">
                   No documents in this collection.
                 </h3>
                 <p className="mx-auto mt-2 max-w-sm text-[12px] leading-5 text-[var(--body)]">
@@ -194,8 +191,7 @@ export function CollectionSettingsPage({
                 Delete “{collection.name}”
               </p>
               <p className="mt-1 text-[11px] leading-5 text-[#8f6467]">
-                This action cannot be undone once a server database is
-                connected.
+                This action cannot be undone
               </p>
             </div>
             <button
@@ -203,7 +199,7 @@ export function CollectionSettingsPage({
               onClick={() => setIsDeleteConfirmationOpen(true)}
               className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-white shadow-[0_4px_12px_rgba(143,61,66,0.09)] px-3 text-[12px] font-medium text-[#963e43] transition hover:bg-[#fff2f2] sm:mt-0"
             >
-              <Trash2 size={14} /> Delete
+              <Trash2 size={14} strokeWidth={1}/> Delete
             </button>
           </div>
         </section>
@@ -280,7 +276,7 @@ export function CollectionSettingsPage({
             aria-labelledby="delete-collection-title"
             className="relative w-full max-w-sm bg-[var(--cream)] p-6 shadow-[0_24px_70px_rgba(30,26,32,0.24)]"
           >
-            <AlertTriangle size={22} className="text-[#963e43]" />
+            <AlertTriangle size={22} className="text-[#963e43]" strokeWidth={1}/>
             <h2
               id="delete-collection-title"
               className="mt-4 font-[var(--serif)] text-[20px] leading-none tracking-[-0.055em]"
@@ -312,9 +308,9 @@ export function CollectionSettingsPage({
                   }
                 }}
                 disabled={isDeleting}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-[#963e43] px-3 text-[12px] font-medium text-white hover:bg-[#783034] disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-[#963e43] px-3 text-[11px] font-medium text-white hover:bg-[#783034] disabled:cursor-wait disabled:opacity-70"
               >
-                {isDeleting ? <><Spinner className="size-3.5 animate-spin" /> Deleting…</> : <>Delete <ArrowRight size={14} /></>}
+                {isDeleting ? <><Spinner className="size-3.5 animate-spin" /> Deleting…</> : <>Delete <ArrowRight size={14} strokeWidth={1} /></>}
               </button>
             </div>
           </section>

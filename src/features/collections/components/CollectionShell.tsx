@@ -12,12 +12,13 @@ import { navigate } from "../../../app/navigation";
 import { signOut } from "../../auth/api";
 import { Spinner } from "../../../components/ui/spinner";
 
-type CollectionShellProps = PropsWithChildren<{ collection?: Collection; isRefreshing?: boolean }>;
+type CollectionShellProps = PropsWithChildren<{ collection?: Collection; isRefreshing?: boolean; onOpenCreateCollection: () => void }>;
 
 export function CollectionShell({
   collection,
   children,
   isRefreshing = false,
+  onOpenCreateCollection,
 }: CollectionShellProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
@@ -55,9 +56,9 @@ export function CollectionShell({
               <>
                 <span className="hidden h-5 w-px bg-[var(--line)] sm:block" />
                 <div className="hidden min-w-0 items-center gap-2 text-[12px] text-[var(--body)] sm:flex">
-                  <FolderOpen size={14} className="text-[var(--purple)]" />
+                  <FolderOpen size={14} className="text-[var(--purple)]" strokeWidth={1} />
                   <span className="truncate">{collection.name}</span>
-                  <ChevronDown size={13} />
+                  <ChevronDown size={13} strokeWidth={1} />
                 </div>
               </>
             )}
@@ -69,8 +70,8 @@ export function CollectionShell({
                 onClick={() => navigate({ name: "settings", collectionId: collection.id })}
                 className="inline-flex h-9 items-center gap-2 rounded-md px-2.5 text-[12px] text-[var(--body)] transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--paper)] hover:text-[var(--ink)] active:translate-y-0"
               >
-                <Settings size={15} />
-                <span className="hidden sm:inline">Settings</span>
+                <Settings size={15} strokeWidth={1}/>
+                <span className="hidden sm:inline text-sm">Settings</span>
               </button>
             )}
             <button
@@ -80,16 +81,16 @@ export function CollectionShell({
               className="inline-flex h-9 items-center gap-2 rounded-md px-2.5 text-[12px] text-[var(--body)] transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--paper)] hover:text-[var(--ink)] active:translate-y-0 disabled:cursor-wait disabled:opacity-60"
               aria-label="Log out"
             >
-              {isSigningOut ? <Spinner className="size-[15px] animate-spin" /> : <LogOut size={15} />}
-              <span className="hidden md:inline">{isSigningOut ? "Logging out…" : "Log out"}</span>
+              {isSigningOut ? <Spinner className="size-[15px] animate-spin" /> : <LogOut size={15} strokeWidth={1}/>}
+              <span className="hidden md:inline text-sm">{isSigningOut ? "Logging out…" : "Log out"}</span>
             </button>
             <button
               type="button"
-              onClick={() => navigate({ name: "new-collection" })}
+              onClick={onOpenCreateCollection}
               className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--purple)] px-3 text-[12px] font-medium text-white transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--purple-dark)] active:translate-y-0"
             >
-              <Plus size={15} />
-              <span className="hidden sm:inline">New collection</span>
+              <Plus size={15} strokeWidth={1}/>
+              <span className="hidden sm:inline text-sm">New collection</span>
               <span className="sm:hidden">New</span>
             </button>
           </div>

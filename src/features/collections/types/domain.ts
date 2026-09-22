@@ -22,9 +22,19 @@ export type Collection = {
   documents: CollectionDocument[];
 };
 
+export type ChatCitation = {
+  chunkId: string;
+  documentId: string;
+  filename: string;
+  pageNumber: number | null;
+  content: string;
+  orderIndex: number;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  kind?: "not-found";
+  kind?: "not-found" | "rate-limited" | "provider-error";
+  citations?: ChatCitation[];
 };
