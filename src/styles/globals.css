@@ -1583,29 +1583,15 @@ button {
   .auth-modal { animation: none; }
 }
 
-/* Global scrollbar — native where supported, tuned to NotesRAG's material palette. */
+/* Scrollbars stay visually quiet throughout the app; scrolling remains fully available. */
 html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--purple) var(--paper);
+  scrollbar-width: none;
 }
-::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
-}
-::-webkit-scrollbar-track {
-  background: var(--paper);
-}
-::-webkit-scrollbar-thumb {
-  min-height: 44px;
-  border: 3px solid var(--paper);
-  border-radius: 999px;
-  background: var(--purple);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--purple-dark);
-}
-::-webkit-scrollbar-corner {
-  background: var(--paper);
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes loading-bar {

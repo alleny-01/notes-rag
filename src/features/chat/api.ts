@@ -93,6 +93,10 @@ export async function loadLatestChat(collectionId: string) {
   };
 }
 
+export async function clearChatSession(sessionId: string) {
+  const { error } = await supabase.from("chat_sessions").delete().eq("id", sessionId);
+  if (error) throw new Error(error.message);
+}
 export async function sendChatMessage({ collectionId, sessionId, question, documentId }: SendMessageInput): Promise<SendMessageResult> {
   const resolvedSessionId = sessionId ?? await createChatSession(collectionId);
   const { data, error } = await supabase.functions.invoke<ChatEndpointResponse>("chat", {

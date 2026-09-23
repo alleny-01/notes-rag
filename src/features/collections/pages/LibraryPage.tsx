@@ -421,7 +421,7 @@ function CollectionShelf({
                 )}
                 <span className = "text-sm">{allVisibleSelected ? "Clear shown" : "Select shown"}</span>
               </button>
-              <span className="text-sm font-medium text-[var(--purple)]">
+              <span className="text-sm font-medium text-[var(--body)]">
                 {selectedCount} selected
               </span>
               <button
