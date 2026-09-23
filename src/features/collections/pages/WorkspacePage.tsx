@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { navigate } from "../../../app/navigation";
 import { Spinner } from "../../../components/ui/spinner";
+import { useQueryClient } from "@tanstack/react-query";
+import { InlineCitationAnswer } from "../../chat/components/InlineCitationAnswer";
+import { useChatHistory } from "../../chat/hooks/useChatHistory";
 import { useSendMessage } from "../../chat/hooks/useSendMessage";
 import type { ChatCitation, ChatMessage, Collection } from "../types/domain";
 
@@ -161,7 +164,11 @@ function AssistantMessage({
             : "NotesRAG"}
       </p>
       <p className="text-[13px] leading-6 text-[var(--body)]">
-        {message.content}
+        <InlineCitationAnswer
+          content={message.content}
+          citations={message.citations}
+          onOpenCitation={onOpenCitation}
+        />
       </p>
       {isNotFound && (
         <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
@@ -200,7 +207,21 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+  const chatHistory = useChatHistory(collection.id);
   const sendMessage = useSendMessage();
+
+  useEffect(() => {
+    setMessages([]);
+    setSessionId(undefined);
+    setActiveCitation(null);
+  }, [collection.id]);
+
+  useEffect(() => {
+    if (!chatHistory.data) return;
+    setSessionId((current) => current ?? chatHistory.data.sessionId);
+    setMessages((current) => current.length ? current : chatHistory.data.messages);
+  }, [chatHistory.data]);
   const hasDocuments = collection.documents.some(
     (document) => document.status === "ready",
   );
@@ -262,6 +283,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
         },
       ]);
       if (response.citations[0]) setActiveCitation(response.citations[0]);
+      void queryClient.invalidateQueries({ queryKey: ["chat-history", collection.id] });
     } catch {
       setMessages((current) => [
         ...current,
@@ -330,7 +352,14 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {messages.length === 0 ? (
+            {chatHistory.isLoading && messages.length === 0 ? (
+              <div className="grid min-h-[420px] place-items-center px-6 text-center">
+                <div>
+                  <Spinner className="mx-auto size-5 animate-spin text-[var(--purple)]" />
+                  <p className="mt-3 text-[11px] text-[var(--muted)]">Loading this conversation…</p>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
               <EmptyChat
                 hasDocuments={hasDocuments}
                 onOpenUpload={openUpload}

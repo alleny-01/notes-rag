@@ -87,11 +87,10 @@ export function CollectionShell({
             <button
               type="button"
               onClick={onOpenCreateCollection}
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--purple)] px-3 text-[12px] font-medium text-white transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--purple-dark)] active:translate-y-0"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[var(--purple)] px-2.5 text-[11px] font-medium text-white transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--purple-dark)] active:translate-y-0 sm:gap-2 sm:px-3 sm:text-[12px]"
             >
               <Plus size={15} strokeWidth={1}/>
-              <span className="hidden sm:inline text-sm">New collection</span>
-              <span className="sm:hidden">New</span>
+              <span className="whitespace-nowrap">New collection</span>
             </button>
           </div>
         </div>

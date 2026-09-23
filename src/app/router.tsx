@@ -15,7 +15,7 @@ import { navigate, useAppRoute } from "./navigation";
 import { OnboardingPage } from "../features/onboarding/pages/OnboardingPage";
 
 function SessionBootScreen() {
-  return <main className="grid min-h-screen place-items-center bg-[var(--canvas)] p-6"><div className="flex items-center gap-3 text-[12px] text-[var(--body)]"><Spinner className="size-4 animate-spin text-[var(--purple)]" />Restoring your study space…</div></main>;
+  return <main className="min-h-screen bg-[var(--canvas)]" aria-busy="true" />;
 }
 
 function ProductLoading() {
@@ -55,11 +55,18 @@ function ProductApp() {
     if (collection) await collectionState.delete.mutateAsync(collection);
     navigate({ name: "library" });
   };
+  const deleteCollections = async (collectionIds: string[]) => {
+    const targetIds = new Set(collectionIds);
+    const targets = collections.filter((collection) => targetIds.has(collection.id));
+    for (const collection of targets) {
+      await collectionState.delete.mutateAsync(collection);
+    }
+  };
 
-  const library = <LibraryPage collections={collections} onOpenCollection={recordOpen} onOpenCreateCollection={() => setIsCreateCollectionOpen(true)} />;
+  const library = <LibraryPage collections={collections} onDeleteCollections={deleteCollections} onOpenCollection={recordOpen} onOpenCreateCollection={() => setIsCreateCollectionOpen(true)} />;
   const body = (() => {
     if (route.name === "library" || !activeCollection) return library;
-    if (route.name === "upload") return <UploadPage collection={activeCollection} onAddDocument={addDocument} />;
+    if (route.name === "upload") return <UploadPage collection={activeCollection} onAddDocument={addDocument} onRemoveDocument={(documentId) => removeDocument(activeCollection.id, documentId)} />;
     if (route.name === "settings") return <CollectionSettingsPage collection={activeCollection} onRename={rename} onRemoveDocument={removeDocument} onDelete={deleteCollection} />;
     return <WorkspacePage collection={activeCollection} />;
   })();

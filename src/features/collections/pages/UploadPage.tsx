@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleAlert,
   FileText,
+  Trash2,
   UploadCloud,
   XCircle,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import type { Collection } from "../types/domain";
 type Props = {
   collection: Collection;
   onAddDocument: (collectionId: string, file: File) => Promise<void>;
+  onRemoveDocument: (documentId: string) => Promise<void>;
 };
 const maxSize = 20 * 1024 * 1024;
 const supported = ["application/pdf", "text/plain", "text/markdown"];
@@ -35,10 +37,11 @@ function documentState(document: Collection["documents"][number]) {
   return "Queued for indexing";
 }
 
-export function UploadPage({ collection, onAddDocument }: Props) {
+export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [removingDocumentId, setRemovingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const add = (file?: File) => {
     if (!file) return;
@@ -64,6 +67,17 @@ export function UploadPage({ collection, onAddDocument }: Props) {
         ),
       )
       .finally(() => setChecking(false));
+  };
+  const remove = async (documentId: string) => {
+    setError("");
+    setRemovingDocumentId(documentId);
+    try {
+      await onRemoveDocument(documentId);
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "We could not remove this document.");
+    } finally {
+      setRemovingDocumentId(null);
+    }
   };
   const documents = collection.documents;
   return (
@@ -120,8 +134,8 @@ export function UploadPage({ collection, onAddDocument }: Props) {
               >
                 {checking ? (
                   <>
-                    <Spinner className="size-[15px] animate-spin" /> Checking
-                    document…
+                    <Spinner className="size-[15px] animate-spin" /> <span className="text-sm">Checking
+                    document…</span>
                   </>
                 ) : (
                   <>
@@ -165,13 +179,25 @@ export function UploadPage({ collection, onAddDocument }: Props) {
                       {size(document.size)} · {documentState(document)}
                     </p>
                   </div>
-                  {document.status === "ready" ? (
-                    <CheckCircle2 size={17} className="text-[#63945a]" strokeWidth={1} />
-                  ) : document.status === "failed" ? (
-                    <CircleAlert size={17} className="text-[#a45353]" strokeWidth={1} />
-                  ) : (
-                    <Spinner className="size-4 animate-spin text-[var(--purple)]" />
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {document.status === "ready" ? (
+                      <CheckCircle2 size={17} className="text-[#63945a]" strokeWidth={1} />
+                    ) : document.status === "failed" ? (
+                      <CircleAlert size={17} className="text-[#a45353]" strokeWidth={1} />
+                    ) : (
+                      <Spinner className="size-4 animate-spin text-[var(--purple)]" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void remove(document.id)}
+                      disabled={removingDocumentId !== null || checking}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[10px] text-[var(--muted)] transition hover:bg-[#fff1f1] hover:text-[var(--signal)] disabled:cursor-wait disabled:opacity-50"
+                      aria-label={`Remove ${document.filename}`}
+                    >
+                      {removingDocumentId === document.id ? <Spinner className="size-3.5 animate-spin" /> : <Trash2 size={14} strokeWidth={1} />}
+                      <span className="text-sm">{removingDocumentId === document.id ? "Removing…" : "Remove"}</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

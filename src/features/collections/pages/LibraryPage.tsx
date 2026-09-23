@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  CheckSquare,
   ArrowUpRight,
   Book,
   ChevronRight,
@@ -12,14 +13,18 @@ import {
   Plus,
   ScanSearch,
   Search,
+  Square,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import type { Collection } from "../types/domain";
 import { navigate } from "../../../app/navigation";
+import { BulkDeleteCollectionsDialog } from "../components/BulkDeleteCollectionsDialog";
 
 type LibraryPageProps = {
   collections: Collection[];
+  onDeleteCollections: (collectionIds: string[]) => Promise<void>;
   onOpenCollection: (collectionId: string) => void;
   onOpenCreateCollection: () => void;
 };
@@ -101,7 +106,11 @@ function LibraryHeader({ count }: { count: number }) {
   );
 }
 
-function FirstCollectionCanvas({ onOpenCreateCollection }: { onOpenCreateCollection: () => void }) {
+function FirstCollectionCanvas({
+  onOpenCreateCollection,
+}: {
+  onOpenCreateCollection: () => void;
+}) {
   return (
     <section className="mt-9 grid gap-2 overflow-hidden bg-[var(--canvas)] lg:grid-cols-[minmax(0,1.18fr)_minmax(280px,0.82fr)]">
       <div className="relative overflow-hidden p-6 sm:p-9">
@@ -189,7 +198,11 @@ function CollectionSearch({
   return (
     <div className="mt-7 flex flex-col gap-3 bg-[var(--paper)] p-3 shadow-[0_10px_22px_rgba(66,47,39,0.04)] lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 flex-1 items-center gap-2.5 bg-white px-3 shadow-[inset_0_0_0_1px_rgba(222,214,203,0.58)] transition focus-within:shadow-[inset_0_0_0_1px_var(--purple),0_0_0_3px_rgba(95,61,130,0.1)]">
-        <Search size={15} className="shrink-0 text-[var(--purple)]" strokeWidth={1} />
+        <Search
+          size={15}
+          className="shrink-0 text-[var(--purple)]"
+          strokeWidth={1}
+        />
         <label htmlFor="collection-search" className="sr-only">
           Search collections
         </label>
@@ -215,7 +228,9 @@ function CollectionSearch({
         <label className="flex h-10 min-w-0 items-center gap-2 bg-white px-3 text-[var(--muted)] shadow-[inset_0_0_0_1px_rgba(222,214,203,0.58)]">
           <SlidersHorizontal
             size={14}
-            className="shrink-0 text-[var(--purple)]" strokeWidth={1} />
+            className="shrink-0 text-[var(--purple)]"
+            strokeWidth={1}
+          />
           <span className="sr-only">Collection order</span>
           <select
             aria-label="Collection order"
@@ -245,26 +260,59 @@ function CollectionSearch({
 function CollectionRow({
   collection,
   index,
+  isSelected,
+  isSelecting,
   onOpenCollection,
+  onToggleSelection,
 }: {
   collection: Collection;
   index: number;
+  isSelected: boolean;
+  isSelecting: boolean;
   onOpenCollection: (collectionId: string) => void;
+  onToggleSelection: (collectionId: string) => void;
 }) {
   const hasDocuments = collection.documents.length > 0;
   const destination = hasDocuments
     ? { name: "workspace" as const, collectionId: collection.id }
     : { name: "upload" as const, collectionId: collection.id };
   const open = () => {
+    if (isSelecting) {
+      onToggleSelection(collection.id);
+      return;
+    }
     if (hasDocuments) onOpenCollection(collection.id);
     navigate(destination);
   };
+
   return (
-    <article className="group grid gap-4 bg-[var(--cream)] px-4 py-5 shadow-[0_1px_0_rgba(66,47,39,0.03)] transition-all duration-300 hover:-translate-y-px hover:bg-white hover:shadow-[0_14px_26px_rgba(66,47,39,0.08)] sm:grid-cols-[38px_minmax(0,1fr)_auto] sm:items-center">
+    <article
+      className={`group relative grid gap-4 bg-[var(--cream)] px-4 py-5 shadow-[0_1px_0_rgba(66,47,39,0.03)] transition-all duration-300 hover:-translate-y-px hover:bg-white hover:shadow-[0_14px_26px_rgba(66,47,39,0.08)] sm:grid-cols-[38px_minmax(0,1fr)_auto] sm:items-center ${isSelecting ? "pl-14" : ""} ${isSelected ? "bg-[var(--lilac)] shadow-[0_10px_22px_rgba(95,61,130,0.12)]" : ""}`}
+    >
+      {isSelecting && (
+        <button
+          type="button"
+          onClick={() => onToggleSelection(collection.id)}
+          className="absolute left-4 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[var(--purple)] transition hover:scale-105 hover:bg-white"
+          aria-label={`${isSelected ? "Deselect" : "Select"} ${collection.name}`}
+          aria-pressed={isSelected}
+        >
+          {isSelected ? (
+            <CheckSquare size={18} strokeWidth={1} />
+          ) : (
+            <Square size={18} strokeWidth={1} />
+          )}
+        </button>
+      )}
       <span className="hidden font-mono text-[10px] text-[var(--muted)] sm:block">
         {String(index + 1).padStart(2, "0")}
       </span>
-      <button type="button" onClick={open} className="min-w-0 text-left">
+      <button
+        type="button"
+        onClick={open}
+        className="min-w-0 text-left"
+        aria-pressed={isSelecting ? isSelected : undefined}
+      >
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[var(--lilac)] text-[var(--purple)] transition duration-300 ease-out group-hover:rotate-3 group-hover:scale-110">
             <Book size={16} strokeWidth={1} />
@@ -275,67 +323,152 @@ function CollectionRow({
             </h2>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--muted)]">
               <span className="inline-flex items-center gap-1">
-                <FileText size={12} strokeWidth={1} /> {collection.documents.length}{" "}
+                <FileText size={12} strokeWidth={1} />{" "}
+                {collection.documents.length}{" "}
                 {collection.documents.length === 1 ? "document" : "documents"}
               </span>
               <span className="hidden text-[var(--line)] sm:inline">/</span>
               <span className="inline-flex items-center gap-1">
-                <Clock3 size={12} strokeWidth={1} /> {timeLabel(collection.lastUsedAt)}
+                <Clock3 size={12} strokeWidth={1} />{" "}
+                {timeLabel(collection.lastUsedAt)}
                 {collection.openCount > 0 ? ` · ${collection.openCount}×` : ""}
               </span>
             </p>
           </div>
         </div>
       </button>
-      <div className="flex items-center justify-between gap-3 sm:justify-end">
-        <button
-          type="button"
-          onClick={() =>
-            navigate({ name: "settings", collectionId: collection.id })
-          }
-          className="grid h-8 w-8 place-items-center rounded-md text-[var(--muted)] opacity-100 transition duration-200 hover:scale-105 hover:bg-white hover:text-[var(--ink)] sm:scale-90 sm:opacity-0 sm:group-hover:scale-100 sm:group-hover:opacity-100"
-          aria-label={`Open ${collection.name} settings`}
-        >
-          <MoreHorizontal size={16} strokeWidth={1} />
-        </button>
-        <button
-          type="button"
-          onClick={open}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-medium text-[var(--purple)] transition duration-200 hover:bg-white hover:pl-3.5"
-        >
-          <span className="text-sm">{hasDocuments ? "Open" : "Add notes"}</span>
-          <ChevronRight size={14} strokeWidth={1} />
-        </button>
-      </div>
+      {!isSelecting && (
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <button
+            type="button"
+            onClick={() =>
+              navigate({ name: "settings", collectionId: collection.id })
+            }
+            className="grid h-8 w-8 place-items-center rounded-md text-[var(--muted)] opacity-100 transition duration-200 hover:scale-105 hover:bg-white hover:text-[var(--ink)] sm:scale-90 sm:opacity-0 sm:group-hover:scale-100 sm:group-hover:opacity-100"
+            aria-label={`Open ${collection.name} settings`}
+          >
+            <MoreHorizontal size={16} strokeWidth={1} />
+          </button>
+          <button
+            type="button"
+            onClick={open}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-medium text-[var(--purple)] transition duration-200 hover:bg-white hover:pl-3.5"
+          >
+            <span className="text-sm">
+              {hasDocuments ? "Open" : "Add notes"}
+            </span>
+            <ChevronRight size={14} strokeWidth={1} />
+          </button>
+        </div>
+      )}
     </article>
   );
 }
 
 function CollectionShelf({
   collections,
+  isSelecting,
+  onCancelSelection,
   onClear,
+  onDeleteAll,
+  onDeleteSelected,
   onOpenCollection,
   onOpenCreateCollection,
+  onStartSelection,
+  onToggleAllVisible,
+  onToggleSelection,
+  selectedCount,
+  selectedIds,
+  totalCollectionCount,
 }: {
   collections: Collection[];
+  isSelecting: boolean;
+  onCancelSelection: () => void;
   onClear: () => void;
+  onDeleteAll: () => void;
+  onDeleteSelected: () => void;
   onOpenCollection: (collectionId: string) => void;
   onOpenCreateCollection: () => void;
+  onStartSelection: () => void;
+  onToggleAllVisible: () => void;
+  onToggleSelection: (collectionId: string) => void;
+  selectedCount: number;
+  selectedIds: Set<string>;
+  totalCollectionCount: number;
 }) {
+  const allVisibleSelected =
+    collections.length > 0 &&
+    collections.every((collection) => selectedIds.has(collection.id));
+
   return (
     <section className="mt-9 w-full">
       <div>
-        <div className="flex items-center justify-between pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
           <p className="text-[12px] font-medium text-[var(--ink)]">
             Your collection index
           </p>
-          <button
-            type="button"
-            onClick={onOpenCreateCollection}
-            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--purple)] transition duration-200 hover:translate-x-0.5 hover:text-[var(--purple-dark)]"
-          >
-            <Plus size={16} strokeWidth={1} />
-          </button>
+          {isSelecting ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onToggleAllVisible}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium text-[var(--body)] hover:text-[var(--purple)]"
+              >
+                {allVisibleSelected ? (
+                  <CheckSquare size={14} strokeWidth={1} />
+                ) : (
+                  <Square size={14} strokeWidth={1} />
+                )}
+                <span className = "text-sm">{allVisibleSelected ? "Clear shown" : "Select shown"}</span>
+              </button>
+              <span className="text-sm font-medium text-[var(--purple)]">
+                {selectedCount} selected
+              </span>
+              <button
+                type="button"
+                onClick={onDeleteSelected}
+                disabled={selectedCount === 0}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#fff1f1] px-2.5 text-[11px] font-medium text-[#963e43] transition hover:-translate-y-px hover:bg-[#ffe7e7] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Trash2 size={14} strokeWidth={1} />{" "}
+                <span className="text-sm">Delete selected</span>
+              </button>
+              <button
+                type="button"
+                onClick={onDeleteAll}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] text-[#963e43] transition hover:bg-[#fff1f1]"
+              >
+                <span className="text-sm">
+                  Delete all ({totalCollectionCount})
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={onCancelSelection}
+                className="inline-flex h-8 items-center rounded-md px-2 text-[11px] text-[var(--muted)] transition hover:bg-[var(--paper)] hover:text-[var(--ink)]"
+              >
+                <span className="text-sm">Cancel</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onStartSelection}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium text-[var(--body)]  hover:text-[var(--purple)]"
+              >
+                <Square size={14} strokeWidth={1} /> <span className = "text-sm">Select</span>
+              </button>
+              <button
+                type="button"
+                onClick={onOpenCreateCollection}
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--purple)] transition duration-200 hover:translate-x-0.5 hover:text-[var(--purple-dark)]"
+                aria-label="Create collection"
+              >
+                <Plus size={16} strokeWidth={1} />
+              </button>
+            </div>
+          )}
         </div>
         <div className="mt-3 space-y-2">
           {collections.length ? (
@@ -344,12 +477,19 @@ function CollectionShelf({
                 key={collection.id}
                 collection={collection}
                 index={index}
+                isSelected={selectedIds.has(collection.id)}
+                isSelecting={isSelecting}
                 onOpenCollection={onOpenCollection}
+                onToggleSelection={onToggleSelection}
               />
             ))
           ) : (
             <div className="bg-[var(--paper)] px-5 py-12 text-center shadow-[0_12px_26px_rgba(66,47,39,0.04)]">
-              <Search size={20} className="mx-auto text-[var(--purple)]" strokeWidth={1} />
+              <Search
+                size={20}
+                className="mx-auto text-[var(--purple)]"
+                strokeWidth={1}
+              />
               <h2 className="mt-4 font-[var(--serif)] text-[20px] font-light tracking-[-0.04em]">
                 No matching collection.
               </h2>
@@ -362,7 +502,8 @@ function CollectionShelf({
                 onClick={onClear}
                 className="mt-5 text-[11px] font-medium text-[var(--purple)] transition hover:translate-x-0.5 hover:text-[var(--purple-dark)]"
               >
-                Clear filters <ArrowUpRight size={13} className="inline" />
+                Clear filters{" "}
+                <ArrowUpRight size={13} className="inline" strokeWidth={1} />
               </button>
             </div>
           )}
@@ -371,7 +512,6 @@ function CollectionShelf({
     </section>
   );
 }
-
 function LibrarySignal({ collections }: { collections: Collection[] }) {
   const totalDocuments = collections.reduce(
     (total, collection) => total + collection.documents.length,
@@ -407,7 +547,9 @@ function LibrarySignal({ collections }: { collections: Collection[] }) {
           <div className="flex items-start gap-2.5">
             <ScanSearch
               size={16}
-              className="mt-0.5 shrink-0 text-[var(--purple)]" strokeWidth={1} />
+              className="mt-0.5 shrink-0 text-[var(--purple)]"
+              strokeWidth={1}
+            />
             <p className="text-[11px] leading-5 text-[var(--body)]">
               Search matches both collection titles and document filenames.
             </p>
@@ -420,11 +562,29 @@ function LibrarySignal({ collections }: { collections: Collection[] }) {
 
 export function LibraryPage({
   collections,
+  onDeleteCollections,
   onOpenCollection,
   onOpenCreateCollection,
 }: LibraryPageProps) {
   const [query, setQuery] = useState("");
   const [order, setOrder] = useState<CollectionOrder>("default");
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleteTarget, setDeleteTarget] = useState<"selected" | "all" | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    const availableIds = new Set(
+      collections.map((collection) => collection.id),
+    );
+    setSelectedIds(
+      (current) => new Set([...current].filter((id) => availableIds.has(id))),
+    );
+  }, [collections]);
+
   const matchingCollections = useMemo(() => {
     const term = query.trim().toLocaleLowerCase();
     const filtered = term
@@ -438,10 +598,62 @@ export function LibraryPage({
       : collections;
     return [...filtered].sort(compareCollections(order));
   }, [collections, order, query]);
+
+  const selectedCollectionIds = collections
+    .filter((collection) => selectedIds.has(collection.id))
+    .map((collection) => collection.id);
+  const idsPendingDeletion =
+    deleteTarget === "all"
+      ? collections.map((collection) => collection.id)
+      : selectedCollectionIds;
   const clearFilters = () => {
     setQuery("");
     setOrder("default");
   };
+  const toggleSelection = (collectionId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(collectionId)) next.delete(collectionId);
+      else next.add(collectionId);
+      return next;
+    });
+  };
+  const toggleAllVisible = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      const allVisibleSelected =
+        matchingCollections.length > 0 &&
+        matchingCollections.every((collection) => next.has(collection.id));
+      matchingCollections.forEach((collection) => {
+        if (allVisibleSelected) next.delete(collection.id);
+        else next.add(collection.id);
+      });
+      return next;
+    });
+  };
+  const cancelSelection = () => {
+    setIsSelecting(false);
+    setSelectedIds(new Set());
+  };
+  const confirmDeletion = async () => {
+    if (!idsPendingDeletion.length) return;
+    setDeleteError("");
+    setIsDeleting(true);
+    try {
+      await onDeleteCollections(idsPendingDeletion);
+      setDeleteTarget(null);
+      cancelSelection();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "We could not delete those collections. Please try again.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <main className="mx-auto w-full max-w-[1400px] px-4 py-9 sm:px-6 sm:py-12 lg:px-9">
       <LibraryHeader count={collections.length} />
@@ -456,15 +668,34 @@ export function LibraryPage({
           />
           <CollectionShelf
             collections={matchingCollections}
+            isSelecting={isSelecting}
+            onCancelSelection={cancelSelection}
             onClear={clearFilters}
+            onDeleteAll={() => setDeleteTarget("all")}
+            onDeleteSelected={() => setDeleteTarget("selected")}
             onOpenCollection={onOpenCollection}
             onOpenCreateCollection={onOpenCreateCollection}
+            onStartSelection={() => setIsSelecting(true)}
+            onToggleAllVisible={toggleAllVisible}
+            onToggleSelection={toggleSelection}
+            selectedCount={selectedCollectionIds.length}
+            selectedIds={selectedIds}
+            totalCollectionCount={collections.length}
           />
-
+          {deleteError && (
+            <p
+              className="mt-4 bg-[#fff7f7] px-3 py-2 text-[12px] text-[#8f3d42]"
+              role="alert"
+            >
+              {deleteError}
+            </p>
+          )}
           <LibrarySignal collections={matchingCollections} />
         </>
       ) : (
-        <FirstCollectionCanvas onOpenCreateCollection={onOpenCreateCollection} />
+        <FirstCollectionCanvas
+          onOpenCreateCollection={onOpenCreateCollection}
+        />
       )}
       <section className="mt-10 flex flex-col gap-3 pt-5 text-[11px] text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-2">
@@ -472,10 +703,19 @@ export function LibraryPage({
           Every collection keeps its sources and conversations in one place.
         </span>
         <span className="inline-flex items-center gap-2">
-          <MessageSquareText size={14} strokeWidth={1} /> Answers will always point back to a
-          passage.
+          <MessageSquareText size={14} strokeWidth={1} /> Answers will always
+          point back to a passage.
         </span>
       </section>
+      <BulkDeleteCollectionsDialog
+        count={idsPendingDeletion.length}
+        isDeleting={isDeleting}
+        isOpen={deleteTarget !== null}
+        onClose={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+        onConfirm={confirmDeletion}
+      />
     </main>
   );
 }

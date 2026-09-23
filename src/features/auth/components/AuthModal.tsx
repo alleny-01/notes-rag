@@ -90,8 +90,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="auth-actions">
               <button className="auth-provider-button" type="button" onClick={beginGoogleSignIn} disabled={isSubmitting}>
                 <GoogleIcon />
-                <span>{isSubmitting ? "Redirecting…" : "Continue with Google"}</span>{isSubmitting ? <Spinner className="size-4 animate-spin" /> : <ArrowUpRight size={16} strokeWidth={1} />}
-                <ArrowUpRight size={16} strokeWidth={1} />
+                <span>{isSubmitting ? "Redirecting…" : "Continue with Google"}</span>
+                {isSubmitting ? <Spinner className="size-4 animate-spin" /> : <ArrowUpRight size={16} strokeWidth={1} />}
               </button>
               <div className="auth-divider"><span>or</span></div>
               <button className="auth-email-button" type="button" onClick={() => setView("magic-link")} disabled={isSubmitting}>
