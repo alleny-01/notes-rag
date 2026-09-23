@@ -93,7 +93,7 @@ export function CollectionSettingsPage({
                   setName(event.target.value);
                   setRenameSaved(false);
                 }}
-                className="h-11 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-[13px] outline-none transition focus:border-[var(--purple)] focus:ring-4 focus:ring-[rgba(95,61,130,0.1)]"
+                className="h-11 min-h-11 w-full min-w-0 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-[13px] outline-none transition focus:border-[var(--purple)] focus:ring-4 focus:ring-[rgba(95,61,130,0.1)] sm:w-auto"
               />
               <button
                 type="submit"

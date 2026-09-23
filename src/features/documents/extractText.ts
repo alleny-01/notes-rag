@@ -1,3 +1,5 @@
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
+
 export type ExtractedPage = { pageNumber: number; text: string };
 
 export type ExtractedDocument = {
@@ -12,6 +14,7 @@ function normalizeText(value: string) {
 
 async function extractPdfText(file: File): Promise<ExtractedDocument> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const data = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjs.getDocument({ data }).promise;
   const pages: ExtractedPage[] = [];

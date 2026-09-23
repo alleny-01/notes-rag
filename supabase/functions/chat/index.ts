@@ -65,7 +65,7 @@ function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[]
     if (Number.isInteger(index) && index >= 0 && index < chunks.length) indexes.add(index);
   }
 
-  return [...indexes].map((index, orderIndex) => {
+  return [...indexes].map((index) => {
     const chunk = chunks[index];
     return {
       chunkId: chunk.chunk_id,
@@ -73,7 +73,9 @@ function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[]
       filename: chunk.filename,
       pageNumber: chunk.page_number,
       content: chunk.content,
-      orderIndex,
+      // Persist the original retrieved-passage number. This keeps the model's
+      // inline [n] markers bound to their true chunk after the chat is reloaded.
+      orderIndex: index,
     };
   });
 }
