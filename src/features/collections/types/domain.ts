@@ -29,6 +29,7 @@ export type ChatCitation = {
   pageNumber: number | null;
   content: string;
   orderIndex: number;
+  highlightText?: string;
 };
 
 export type ChatMessage = {

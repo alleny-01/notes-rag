@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -12,10 +12,11 @@ import {
 } from "lucide-react";
 import { navigate } from "../../../app/navigation";
 import { SourceViewer } from "../../../components/SourceViewer/SourceViewer";
+import { CitationThreadSvg } from "../../../components/CitationThread/CitationThreadSvg";
 import { Spinner } from "../../../components/ui/spinner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatResponseLoader } from "../../chat/components/ChatResponseLoader";
-import { InlineCitationAnswer } from "../../chat/components/InlineCitationAnswer";
+import { citationTargetsForAnswer, InlineCitationAnswer } from "../../chat/components/InlineCitationAnswer";
 import { clearChatSession } from "../../chat/api";
 import { useChatHistory } from "../../chat/hooks/useChatHistory";
 import { useSendMessage } from "../../chat/hooks/useSendMessage";
@@ -68,7 +69,7 @@ function AssistantMessage({
   onOpenCitation,
 }: {
   message: ChatMessage;
-  onOpenCitation: (citation: ChatCitation) => void;
+  onOpenCitation: (citation: ChatCitation, trigger?: HTMLElement) => void;
 }) {
   const isNotFound = message.kind === "not-found";
   const isSignal =
@@ -76,6 +77,7 @@ function AssistantMessage({
   const sourceRule = isSignal
     ? "shadow-[inset_3px_0_0_var(--signal)]"
     : "shadow-[inset_3px_0_0_var(--purple)]";
+  const citationTargets = citationTargetsForAnswer(message.content, message.citations ?? []);
 
   return (
     <div className={`max-w-[92%] bg-[var(--paper)] px-4 py-3 ${sourceRule}`}>
@@ -114,7 +116,7 @@ function AssistantMessage({
             <button
               key={citation.chunkId}
               type="button"
-              onClick={() => onOpenCitation(citation)}
+              onClick={(event) => onOpenCitation(citationTargets.get(citation.orderIndex + 1) ?? citation, event.currentTarget)}
               className="inline-flex items-center gap-1.5 rounded-md bg-white px-2 py-1 text-[10px] text-[var(--purple)] shadow-[0_2px_7px_rgba(66,47,39,0.07)] transition hover:-translate-y-px hover:text-[var(--purple-dark)]"
             >
               <span className="grid size-4 place-items-center rounded-full bg-[var(--lilac)] text-[9px] font-semibold">
@@ -138,6 +140,9 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
   const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(
     null,
   );
+  const [citationTrigger, setCitationTrigger] = useState<HTMLElement | null>(null);
+  const [sourceHighlightElement, setSourceHighlightElement] = useState<HTMLElement | null>(null);
+  const [submissionKey, setSubmissionKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClearConfirmationOpen, setIsClearConfirmationOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -145,6 +150,8 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
   const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const latestMessageRef = useRef<HTMLDivElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const questionFormRef = useRef<HTMLFormElement>(null);
   const queryClient = useQueryClient();
   const chatHistory = useChatHistory(collection.id);
   const sendMessage = useSendMessage();
@@ -153,6 +160,8 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     setMessages([]);
     setSessionId(undefined);
     setActiveCitation(null);
+    setCitationTrigger(null);
+    setSourceHighlightElement(null);
   }, [collection.id]);
 
   useEffect(() => {
@@ -193,6 +202,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     if (!question || !hasDocuments || isSubmitting || isClearing) return;
 
     setIsSubmitting(true);
+    setSubmissionKey((current) => current + 1);
     setDraft("");
     setMessages((current) => [
       ...current,
@@ -243,7 +253,13 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
           citations: response.citations,
         },
       ]);
-      if (response.citations[0]) setActiveCitation(response.citations[0]);
+      if (response.citations[0]) {
+        const firstCitation = response.citations[0];
+        setActiveCitation(
+          citationTargetsForAnswer(response.content, response.citations).get(firstCitation.orderIndex + 1)
+            ?? firstCitation,
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: ["chat-history", collection.id] });
     } catch {
       setMessages((current) => [
@@ -273,6 +289,8 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
       setMessages([]);
       setSessionId(undefined);
       setActiveCitation(null);
+    setCitationTrigger(null);
+    setSourceHighlightElement(null);
       setIsClearConfirmationOpen(false);
     } catch (error) {
       setClearError(error instanceof Error ? error.message : "We could not clear this conversation.");
@@ -282,10 +300,15 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
   };
   const openUpload = () =>
     navigate({ name: "upload", collectionId: collection.id });
-  const openCitation = (citation: ChatCitation) => {
+  const openCitation = (citation: ChatCitation, trigger?: HTMLElement) => {
     setActiveCitation(citation);
+    setCitationTrigger(trigger ?? null);
+    setSourceHighlightElement(null);
     setTab("notes");
   };
+  const onSourceHighlightAnchorChange = useCallback((anchor: HTMLElement | null) => {
+    setSourceHighlightElement(anchor);
+  }, []);
 
   return (
     <main className="mx-auto flex w-full max-w-[1600px] flex-col px-4 py-5 sm:px-6 lg:h-[calc(100vh-6.75rem)] lg:px-9 lg:py-7">
@@ -322,9 +345,9 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
           Notes
         </button>
       </div>
-      <div className="grid h-[calc(100dvh-17rem)] min-h-[320px] flex-1 gap-1 overflow-hidden bg-[var(--paper)] shadow-[0_18px_42px_rgba(66,47,39,0.08)] lg:h-auto lg:min-h-[610px] lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+      <div ref={workspaceRef} className="relative grid h-[calc(100dvh-17rem)] min-h-[320px] flex-1 gap-1 overflow-hidden bg-[var(--paper)] shadow-[0_18px_42px_rgba(66,47,39,0.08)] lg:h-auto lg:min-h-[610px] lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <section
-          className={`${tab === "chat" ? "flex" : "hidden"} min-h-0 flex-col bg-[var(--cream)]`}
+          className={`${tab === "chat" ? "flex" : "hidden"} min-h-0 flex-col bg-[var(--cream)] lg:flex`}
         >
           <div className="flex h-12 items-center justify-between bg-[rgba(241,236,227,0.72)] px-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--muted)]">
@@ -346,14 +369,14 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
               ref={chatScrollRef}
               className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-            {chatHistory.isLoading && messages.length === 0 ? (
+            {chatHistory.isLoading && messages.length === 0 && !isSubmitting ? (
               <div className="grid min-h-[420px] place-items-center px-6 text-center">
                 <div>
                   <Spinner className="mx-auto size-5 animate-spin text-[var(--purple)]" />
                   <p className="mt-3 text-[11px] text-[var(--muted)]">Loading this conversation…</p>
                 </div>
               </div>
-            ) : messages.length === 0 ? (
+            ) : messages.length === 0 && !isSubmitting ? (
               <EmptyChat
                 hasDocuments={hasDocuments}
                 onOpenUpload={openUpload}
@@ -378,8 +401,9 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
                       )}
                     </motion.div>
                   ))}
-                  {isSubmitting && <ChatResponseLoader key="response-loader" />}
+
                 </AnimatePresence>
+                {isSubmitting && <ChatResponseLoader key={`response-loader-${submissionKey}`} />}
               </div>
             )}
             <div ref={latestMessageRef} aria-hidden="true" className="h-px" />
@@ -396,11 +420,16 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
             )}
           </div>
           <div className="shrink-0 bg-white">
-          <form onSubmit={submitQuestion} className="p-3">
+          <form ref={questionFormRef} onSubmit={submitQuestion} className="p-3">
             <div className="flex items-end gap-2 rounded-md bg-[var(--paper)] px-3 py-2 shadow-[inset_0_0_0_1px_rgba(222,214,203,0.55)] transition focus-within:ring-4 focus-within:ring-[rgba(95,61,130,0.10)]">
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                  event.preventDefault();
+                  questionFormRef.current?.requestSubmit();
+                }}
                 disabled={!hasDocuments || isSubmitting || isClearing}
                 rows={1}
                 placeholder={
@@ -427,7 +456,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
             <p className="mt-2 px-1 text-[10px] text-[var(--muted)]">
               {isSubmitting
                 ? "Searching your notes…"
-                : "Answers are limited to retrieved passages and carry their source."}
+                : "Press Enter to ask · Shift+Enter for a new line."}
             </p>
           </form>
           </div>
@@ -435,8 +464,14 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
         <div
           className={`${tab === "notes" ? "block" : "hidden"} min-h-0 overflow-y-auto lg:block`}
         >
-          <SourceViewer collection={collection} citation={activeCitation} />
+          <SourceViewer collection={collection} citation={activeCitation} onHighlightAnchorChange={onSourceHighlightAnchorChange} />
         </div>
+        <CitationThreadSvg
+          workspaceRef={workspaceRef}
+          fromElement={citationTrigger}
+          toElement={sourceHighlightElement}
+          label={(activeCitation?.orderIndex ?? 0) + 1}
+        />
       </div>
       {isClearConfirmationOpen && (
         <div className="fixed inset-0 z-[80] grid place-items-center p-4" role="presentation">

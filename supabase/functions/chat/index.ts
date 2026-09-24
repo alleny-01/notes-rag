@@ -4,7 +4,9 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { generateGroundedAnswer } from "../_shared/deepseek.ts";
 import { embedQuery } from "../_shared/voyage.ts";
 
-const SIMILARITY_THRESHOLD = 0.72;
+// Tuned against short study-note questions. Keep this aligned with retrieve-chunks
+// when manually validating retrieval quality; raise it only if irrelevant passages appear.
+const SIMILARITY_THRESHOLD = 0.40;
 const RETRIEVAL_LIMIT = 5;
 const NOT_FOUND_MESSAGE = "Nothing in your notes covers that yet.";
 
@@ -55,7 +57,7 @@ function buildPrompt(chunks: RetrievedChunk[]) {
     .map((chunk, index) => `[${index + 1}] (${chunk.filename}${chunk.page_number ? `, p.${chunk.page_number}` : ""})\n${chunk.content}`)
     .join("\n\n");
 
-  return `Answer only using the supplied passages. Do not use outside knowledge or make unsupported inferences. Cite every factual claim inline as [1], [2], and so on, using only the passage numbers provided. If the passages do not contain the answer, say so directly.\n\nPassages:\n${passages}`;
+  return `Answer only using the supplied passages. Do not use outside knowledge or make unsupported inferences. For every cited factual claim, preserve the source wording as closely as possible: the sentence or clause immediately before [1], [2], etc. must be a direct or near-direct transcription of the cited passage, not a loose paraphrase. Cite every factual claim inline using only the supplied passage numbers. If the passages do not contain the answer, say so directly.\n\nPassages:\n${passages}`;
 }
 
 function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[] {
