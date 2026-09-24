@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { embedQuery } from "../_shared/voyage.ts";
 
-const SIMILARITY_THRESHOLD = 0.72;
+const SIMILARITY_THRESHOLD = 0.40;
 const RETRIEVAL_LIMIT = 5;
 
 type RetrieveRequest = {
