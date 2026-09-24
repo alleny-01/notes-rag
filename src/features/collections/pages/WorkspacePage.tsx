@@ -80,7 +80,7 @@ function AssistantMessage({
   const citationTargets = citationTargetsForAnswer(message.content, message.citations ?? []);
 
   return (
-    <div className={`max-w-[92%] bg-[var(--paper)] px-4 py-3 ${sourceRule}`}>
+    <div data-message-id={message.id} className={`max-w-[92%] bg-[var(--paper)] px-4 py-3 ${sourceRule}`}>
       <p
         className={`mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${isSignal ? "text-[var(--signal)]" : "text-[var(--purple)]"}`}
       >
@@ -141,8 +141,10 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     null,
   );
   const [citationTrigger, setCitationTrigger] = useState<HTMLElement | null>(null);
+  const [citationAnimationKey, setCitationAnimationKey] = useState(0);
   const [sourceHighlightElement, setSourceHighlightElement] = useState<HTMLElement | null>(null);
   const [submissionKey, setSubmissionKey] = useState(0);
+  const [streamingContent, setStreamingContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClearConfirmationOpen, setIsClearConfirmationOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -191,7 +193,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
 
   useEffect(() => {
     window.requestAnimationFrame(() => scrollToLatest(messages.length > 2 ? "smooth" : "auto"));
-  }, [messages.length]);
+  }, [messages.length, streamingContent]);
   const hasDocuments = collection.documents.some(
     (document) => document.status === "ready",
   );
@@ -203,6 +205,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
 
     setIsSubmitting(true);
     setSubmissionKey((current) => current + 1);
+    setStreamingContent("");
     setDraft("");
     setMessages((current) => [
       ...current,
@@ -213,6 +216,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
         collectionId: collection.id,
         sessionId,
         question,
+        onDelta: setStreamingContent,
       });
       setSessionId(result.sessionId);
       const response = result.response;
@@ -243,22 +247,33 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
       }
 
       const kind = response.citations.length ? undefined : "not-found";
+      const assistantMessageId = crypto.randomUUID();
       setMessages((current) => [
         ...current,
         {
-          id: crypto.randomUUID(),
+          id: assistantMessageId,
           role: "assistant",
           kind,
           content: response.content,
           citations: response.citations,
         },
       ]);
-      if (response.citations[0]) {
-        const firstCitation = response.citations[0];
-        setActiveCitation(
-          citationTargetsForAnswer(response.content, response.citations).get(firstCitation.orderIndex + 1)
-            ?? firstCitation,
-        );
+      const firstMarker = response.content.match(/\[(\d+)\]/);
+      const firstCitation = response.citations.find(
+        (citation) => citation.orderIndex + 1 === Number(firstMarker?.[1]),
+      ) ?? response.citations[0];
+      if (firstCitation) {
+        const firstTarget = citationTargetsForAnswer(response.content, response.citations).get(firstCitation.orderIndex + 1)
+          ?? firstCitation;
+        setActiveCitation(firstTarget);
+        setCitationAnimationKey((current) => current + 1);
+        setSourceHighlightElement(null);
+        window.requestAnimationFrame(() => {
+          const trigger = workspaceRef.current?.querySelector<HTMLElement>(
+            `[data-message-id="${assistantMessageId}"] [data-citation-order="${firstCitation.orderIndex}"]`,
+          );
+          setCitationTrigger(trigger ?? null);
+        });
       }
       void queryClient.invalidateQueries({ queryKey: ["chat-history", collection.id] });
     } catch {
@@ -273,6 +288,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
         },
       ]);
     } finally {
+      setStreamingContent("");
       setIsSubmitting(false);
     }
   };
@@ -302,6 +318,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     navigate({ name: "upload", collectionId: collection.id });
   const openCitation = (citation: ChatCitation, trigger?: HTMLElement) => {
     setActiveCitation(citation);
+    setCitationAnimationKey((current) => current + 1);
     setCitationTrigger(trigger ?? null);
     setSourceHighlightElement(null);
     setTab("notes");
@@ -403,7 +420,20 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
                   ))}
 
                 </AnimatePresence>
-                {isSubmitting && <ChatResponseLoader key={`response-loader-${submissionKey}`} />}
+                {isSubmitting && !streamingContent && <ChatResponseLoader key={`response-loader-${submissionKey}`} />}
+                {isSubmitting && streamingContent && (
+                  <motion.div
+                    key={`streaming-answer-${submissionKey}`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                  >
+                    <AssistantMessage
+                      message={{ id: `streaming-${submissionKey}`, role: "assistant", content: streamingContent }}
+                      onOpenCitation={openCitation}
+                    />
+                  </motion.div>
+                )}
               </div>
             )}
             <div ref={latestMessageRef} aria-hidden="true" className="h-px" />
@@ -471,6 +501,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
           fromElement={citationTrigger}
           toElement={sourceHighlightElement}
           label={(activeCitation?.orderIndex ?? 0) + 1}
+          animationKey={citationAnimationKey}
         />
       </div>
       {isClearConfirmationOpen && (

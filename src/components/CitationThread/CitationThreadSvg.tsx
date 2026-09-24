@@ -6,6 +6,7 @@ type CitationThreadSvgProps = {
   fromElement: HTMLElement | null;
   toElement: HTMLElement | null;
   label: number;
+  animationKey: number;
 };
 
 type ThreadPath = {
@@ -27,7 +28,7 @@ function isVisibleInside(bounds: DOMRect, rect: DOMRect) {
   );
 }
 
-export function CitationThreadSvg({ workspaceRef, fromElement, toElement, label }: CitationThreadSvgProps) {
+export function CitationThreadSvg({ workspaceRef, fromElement, toElement, label, animationKey }: CitationThreadSvgProps) {
   const [thread, setThread] = useState<ThreadPath | null>(null);
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export function CitationThreadSvg({ workspaceRef, fromElement, toElement, label 
       preserveAspectRatio="none"
     >
       <motion.path
-        key={`${thread.startX}-${thread.startY}-${thread.endX}-${thread.endY}-${label}`}
+        key={`${thread.startX}-${thread.startY}-${thread.endX}-${thread.endY}-${label}-${animationKey}`}
         d={thread.path}
         fill="none"
         stroke="var(--purple)"
@@ -114,6 +115,7 @@ export function CitationThreadSvg({ workspaceRef, fromElement, toElement, label 
         }}
       />
       <motion.circle
+        key={`start-${animationKey}`}
         cx={thread.startX}
         cy={thread.startY}
         r="8"

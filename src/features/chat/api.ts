@@ -11,6 +11,7 @@ type SendMessageInput = {
   sessionId?: string;
   question: string;
   documentId?: string;
+  onDelta?: (content: string) => void;
 };
 
 export type SendMessageResult = {
@@ -33,6 +34,11 @@ type ChatHistoryRow = {
     } | null;
   }>;
 };
+
+type StreamEvent =
+  | { type: "delta"; content: string }
+  | { type: "answer"; content: string; citations: ChatCitation[] }
+  | { type: "provider_error" };
 
 function toChatMessage(row: ChatHistoryRow): ChatMessage {
   const citations = (row.citations ?? [])
@@ -97,11 +103,81 @@ export async function clearChatSession(sessionId: string) {
   const { error } = await supabase.from("chat_sessions").delete().eq("id", sessionId);
   if (error) throw new Error(error.message);
 }
-export async function sendChatMessage({ collectionId, sessionId, question, documentId }: SendMessageInput): Promise<SendMessageResult> {
+
+function chatFunctionUrl() {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  if (!baseUrl) throw new Error("VITE_SUPABASE_URL is not configured.");
+  return `${baseUrl.replace(/\/$/, "")}/functions/v1/chat`;
+}
+
+async function readStreamedChat(response: Response, onDelta?: (content: string) => void): Promise<ChatEndpointResponse> {
+  if (!response.body) throw new Error("The chat response did not include a stream.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+
+    for (const eventBlock of events) {
+      const data = eventBlock
+        .split("\n")
+        .find((line) => line.startsWith("data:"))
+        ?.slice(5)
+        .trim();
+      if (!data) continue;
+      let event: StreamEvent;
+      try {
+        event = JSON.parse(data) as StreamEvent;
+      } catch {
+        continue;
+      }
+      if (event.type === "delta") {
+        content += event.content;
+        onDelta?.(content);
+        continue;
+      }
+      if (event.type === "provider_error") return event;
+      return { type: "answer", content: event.content || content, citations: event.citations };
+    }
+  }
+
+  throw new Error("The answer stream ended before it completed.");
+}
+
+export async function sendChatMessage({
+  collectionId,
+  sessionId,
+  question,
+  documentId,
+  onDelta,
+}: SendMessageInput): Promise<SendMessageResult> {
   const resolvedSessionId = sessionId ?? await createChatSession(collectionId);
-  const { data, error } = await supabase.functions.invoke<ChatEndpointResponse>("chat", {
-    body: { collectionId, sessionId: resolvedSessionId, question, documentId },
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  if (!accessToken || !publishableKey) throw new Error("Your session is unavailable. Please sign in again.");
+
+  const response = await fetch(chatFunctionUrl(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: publishableKey,
+      "Content-Type": "application/json",
+      Accept: "text/event-stream, application/json",
+    },
+    body: JSON.stringify({ collectionId, sessionId: resolvedSessionId, question, documentId }),
   });
-  if (error || !data) throw new Error(error?.message ?? "We could not send that question.");
-  return { sessionId: resolvedSessionId, response: data };
+  if (!response.ok) throw new Error("We could not send that question.");
+
+  const responseType = response.headers.get("content-type") ?? "";
+  const payload = responseType.includes("text/event-stream")
+    ? await readStreamedChat(response, onDelta)
+    : await response.json() as ChatEndpointResponse;
+  return { sessionId: resolvedSessionId, response: payload };
 }
