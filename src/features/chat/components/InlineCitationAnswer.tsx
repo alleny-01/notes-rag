@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ChatCitation } from "../../collections/types/domain";
+import { citationTargetForMarker } from "../citationMap";
 
 type InlineCitationAnswerProps = {
   content: string;
@@ -7,59 +8,6 @@ type InlineCitationAnswerProps = {
   onOpenCitation: (citation: ChatCitation, trigger?: HTMLElement) => void;
 };
 
-function cleanClaim(value: string) {
-  return value
-    .replace(/\[\d+\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^[-–—•]\s*/, "");
-}
-
-function claimBeforeCitation(content: string, position: number) {
-  const before = content.slice(0, position).replace(/\[\d+\]\s*$/g, "").trim();
-  const boundary = Math.max(
-    before.lastIndexOf("."),
-    before.lastIndexOf("?"),
-    before.lastIndexOf("!"),
-    before.lastIndexOf("\n"),
-  );
-  return cleanClaim(before.slice(boundary + 1));
-}
-
-/**
- * A marker belongs to the exact claim immediately before it, not to every
- * sentence in the retrieved chunk. Position is part of the identity: repeated
- * [1] markers in one answer can therefore point at different claims.
- */
-export function citationTargetForMarker(
-  content: string,
-  citations: ChatCitation[],
-  position: number,
-  passageNumber: number,
-) {
-  const citation = citations.find((candidate) => candidate.orderIndex + 1 === passageNumber);
-  const claim = claimBeforeCitation(content, position);
-  return citation && claim.length >= 8
-    ? { ...citation, highlightText: claim }
-    : undefined;
-}
-
-function firstCitationTargetForPassage(content: string, citations: ChatCitation[], passageNumber: number) {
-  for (const marker of content.matchAll(/\[(\d+)\]/g)) {
-    if (Number(marker[1]) !== passageNumber) continue;
-    return citationTargetForMarker(content, citations, marker.index ?? 0, passageNumber);
-  }
-  return undefined;
-}
-
-export function citationTargetsForAnswer(content: string, citations: ChatCitation[]) {
-  return new Map(
-    citations.map((citation) => [
-      citation.orderIndex + 1,
-      firstCitationTargetForPassage(content, citations, citation.orderIndex + 1) ?? citation,
-    ]),
-  );
-}
 export function InlineCitationAnswer({
   content,
   citations = [],

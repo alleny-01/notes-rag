@@ -43,8 +43,7 @@ function claimTokens(value: string) {
 }
 
 function pageTokens(viewport: HTMLElement) {
-  const textLayer = viewport.querySelector(".react-pdf__Page__textContent");
-  if (!textLayer) return [] as TextToken[];
+  const textLayer = viewport.querySelector(".react-pdf__Page__textContent") ?? viewport;
 
   const tokens: TextToken[] = [];
   const walker = window.document.createTreeWalker(textLayer, NodeFilter.SHOW_TEXT);
@@ -297,14 +296,82 @@ function PdfSource({
   );
 }
 
-function TextSource({ sourceDocument, citation, sourceText }: { sourceDocument: CollectionDocument; citation: ChatCitation | null; sourceText: string }) {
+function TextSource({
+  sourceDocument,
+  citation,
+  sourceText,
+  onHighlightAnchorChange,
+}: {
+  sourceDocument: CollectionDocument;
+  citation: ChatCitation | null;
+  sourceText: string;
+  onHighlightAnchorChange?: (anchor: HTMLElement | null) => void;
+}) {
+  const textScrollRef = useRef<HTMLDivElement>(null);
+  const textViewportRef = useRef<HTMLDivElement>(null);
+  const highlightLayerRef = useRef<HTMLDivElement>(null);
+  const activeCitation = citation?.documentId === sourceDocument.id ? citation : null;
+
+  useEffect(() => {
+    const viewport = textViewportRef.current;
+    const highlightLayer = highlightLayerRef.current;
+    if (!viewport || !highlightLayer) return;
+    highlightLayer.replaceChildren();
+    if (!activeCitation?.highlightText) {
+      onHighlightAnchorChange?.(null);
+      return;
+    }
+
+    const range = findClaimRange(viewport, activeCitation.highlightText);
+    if (!range) {
+      onHighlightAnchorChange?.(null);
+      return;
+    }
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    let firstHighlight: HTMLElement | null = null;
+    for (const rect of rects) {
+      const highlight = window.document.createElement("span");
+      highlight.style.position = "absolute";
+      highlight.style.left = `${rect.left - viewportRect.left}px`;
+      highlight.style.top = `${rect.top - viewportRect.top}px`;
+      highlight.style.width = `${rect.width}px`;
+      highlight.style.height = `${rect.height}px`;
+      highlight.style.borderRadius = "2px";
+      highlight.style.backgroundColor = "rgba(156, 115, 200, 0.42)";
+      highlight.style.boxShadow = "0 0 0 1px rgba(95, 61, 130, 0.18)";
+      highlightLayer.append(highlight);
+      firstHighlight ??= highlight;
+    }
+
+    const firstRect = rects[0];
+    const scrollArea = textScrollRef.current;
+    if (!firstRect || !scrollArea || !firstHighlight) {
+      onHighlightAnchorChange?.(null);
+      return;
+    }
+    onHighlightAnchorChange?.(firstHighlight);
+    const destination = Math.max(
+      0,
+      firstRect.top - scrollArea.getBoundingClientRect().top + scrollArea.scrollTop - scrollArea.clientHeight * 0.32,
+    );
+    const frame = window.requestAnimationFrame(() => {
+      scrollArea.scrollTo({ top: destination, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeCitation?.chunkId, activeCitation?.highlightText, onHighlightAnchorChange, sourceText]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CitedPassage citation={citation?.documentId === sourceDocument.id ? citation : null} />
-      <div className="mt-4 min-h-0 flex-1 overflow-auto bg-[#e9e1d4] px-4 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <pre className="mx-auto max-w-3xl whitespace-pre-wrap bg-white px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[#574a45] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
-          {sourceText}
-        </pre>
+      <CitedPassage citation={activeCitation} />
+      <div ref={textScrollRef} className="mt-4 min-h-0 flex-1 overflow-auto bg-[#e9e1d4] px-4 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={textViewportRef} className="relative mx-auto max-w-3xl">
+          <pre className="whitespace-pre-wrap bg-white px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[#574a45] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
+            {sourceText}
+          </pre>
+          <div ref={highlightLayerRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1]" />
+        </div>
       </div>
     </div>
   );
@@ -385,7 +452,7 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
         <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">{source.message}</p></div>
       )}
       {source.status === "ready" && isPdf(selectedDocument) && source.url && <PdfSource sourceDocument={selectedDocument} citation={citation} sourceUrl={source.url} onHighlightAnchorChange={onHighlightAnchorChange} />}
-      {source.status === "ready" && !isPdf(selectedDocument) && <TextSource sourceDocument={selectedDocument} citation={citation} sourceText={source.text ?? ""} />}
+      {source.status === "ready" && !isPdf(selectedDocument) && <TextSource sourceDocument={selectedDocument} citation={citation} sourceText={source.text ?? ""} onHighlightAnchorChange={onHighlightAnchorChange} />}
     </section>
   );
 }

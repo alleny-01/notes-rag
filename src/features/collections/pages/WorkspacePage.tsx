@@ -16,7 +16,8 @@ import { CitationThreadSvg } from "../../../components/CitationThread/CitationTh
 import { Spinner } from "../../../components/ui/spinner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatResponseLoader } from "../../chat/components/ChatResponseLoader";
-import { citationTargetsForAnswer, InlineCitationAnswer } from "../../chat/components/InlineCitationAnswer";
+import { InlineCitationAnswer } from "../../chat/components/InlineCitationAnswer";
+import { citationTargetsForAnswer } from "../../chat/citationMap";
 import { clearChatSession } from "../../chat/api";
 import { useChatHistory } from "../../chat/hooks/useChatHistory";
 import { useSendMessage } from "../../chat/hooks/useSendMessage";
@@ -399,7 +400,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
                 onOpenUpload={openUpload}
               />
             ) : (
-              <div className="space-y-5 p-5">
+              <div className="space-y-5 p-5" aria-live="polite" aria-relevant="additions text" aria-busy={isSubmitting}>
                 <AnimatePresence initial={false} mode="popLayout">
                   {messages.map((message) => (
                     <motion.div
