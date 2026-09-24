@@ -3,10 +3,6 @@
 const DEEPSEEK_CHAT_URL = "https://api.deepseek.com/chat/completions";
 const DEEPSEEK_MODEL = "deepseek-flash";
 
-type DeepSeekPayload = {
-  choices?: Array<{ message?: { content?: string | null } }>;
-};
-
 function retryAfterMilliseconds(value: string | null) {
   if (!value) return 2_000;
   const seconds = Number(value);
@@ -19,8 +15,8 @@ function wait(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
-/** Calls DeepSeek at most twice: the second request is only for a provider 429. */
-export async function generateGroundedAnswer(system: string, question: string) {
+/** Opens one DeepSeek SSE stream. A provider 429 is retried exactly once. */
+export async function openGroundedAnswerStream(system: string, question: string) {
   const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not configured for this Edge Function.");
 
@@ -30,11 +26,14 @@ export async function generateGroundedAnswer(system: string, question: string) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        Accept: "text/event-stream",
       },
       body: JSON.stringify({
         model: DEEPSEEK_MODEL,
         temperature: 0.1,
         max_tokens: 900,
+        thinking: { type: "disabled" },
+        stream: true,
         messages: [
           { role: "system", content: system },
           { role: "user", content: question },
@@ -47,11 +46,8 @@ export async function generateGroundedAnswer(system: string, question: string) {
       continue;
     }
     if (!response.ok) throw new Error(`DeepSeek request failed with status ${response.status}.`);
-
-    const result = (await response.json()) as DeepSeekPayload;
-    const content = result.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("DeepSeek returned an empty answer.");
-    return content;
+    if (!response.body) throw new Error("DeepSeek returned an empty response stream.");
+    return response;
   }
 
   throw new Error("DeepSeek remained rate limited after one retry.");

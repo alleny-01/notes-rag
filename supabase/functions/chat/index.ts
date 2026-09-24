@@ -1,7 +1,7 @@
 /// <reference path="../_shared/deno-runtime.d.ts" />
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { generateGroundedAnswer } from "../_shared/deepseek.ts";
+import { openGroundedAnswerStream } from "../_shared/deepseek.ts";
 import { embedQuery } from "../_shared/voyage.ts";
 
 // Tuned against short study-note questions. Keep this aligned with retrieve-chunks
@@ -57,7 +57,7 @@ function buildPrompt(chunks: RetrievedChunk[]) {
     .map((chunk, index) => `[${index + 1}] (${chunk.filename}${chunk.page_number ? `, p.${chunk.page_number}` : ""})\n${chunk.content}`)
     .join("\n\n");
 
-  return `Answer only using the supplied passages. Do not use outside knowledge or make unsupported inferences. For every cited factual claim, preserve the source wording as closely as possible: the sentence or clause immediately before [1], [2], etc. must be a direct or near-direct transcription of the cited passage, not a loose paraphrase. Cite every factual claim inline using only the supplied passage numbers. If the passages do not contain the answer, say so directly.\n\nPassages:\n${passages}`;
+  return `Answer only using the supplied passages. Do not use outside knowledge or make unsupported inferences. Give a direct, useful study answer: use a short paragraph for a definition, and concise bullets when the question asks for functions, roles, steps, or several items. For every cited factual claim, preserve the source wording as closely as possible: the sentence or clause immediately before [1], [2], etc. must be a direct or near-direct transcription of the cited passage, not a loose paraphrase. Cite every factual claim inline using only the supplied passage numbers. For a multiple-choice question with options in the user message, first write "Answer: <letter or option>" and cite the source; then give one brief source-grounded reason. Never invent an option or select one without support in the passages. If the passages do not contain the answer, say so directly.\n\nPassages:\n${passages}`;
 }
 
 function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[] {
@@ -82,6 +82,89 @@ function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[]
   });
 }
 
+function streamEvent(controller: ReadableStreamDefaultController<Uint8Array>, payload: unknown) {
+  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`));
+}
+
+function streamedAnswerResponse(
+  upstream: Response,
+  authenticated: ReturnType<typeof createClient>,
+  sessionId: string,
+  chunks: RetrievedChunk[],
+) {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let answer = "";
+      let buffer = "";
+      try {
+        const reader = upstream.body!.getReader();
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (!data || data === "[DONE]") continue;
+            let event: { choices?: Array<{ delta?: { content?: string | null } }> };
+            try {
+              event = JSON.parse(data);
+            } catch {
+              continue;
+            }
+            const delta = event.choices?.[0]?.delta?.content ?? "";
+            if (!delta) continue;
+            answer += delta;
+            streamEvent(controller, { type: "delta", content: delta });
+          }
+        }
+
+        answer = answer.trim();
+        if (!answer) throw new Error("DeepSeek returned an empty streamed answer.");
+        const citations = selectedCitations(answer, chunks);
+        const { data: assistantMessage, error: assistantMessageError } = await authenticated
+          .from("messages")
+          .insert({ session_id: sessionId, role: "assistant", content: answer })
+          .select("id")
+          .single<{ id: string }>();
+        if (assistantMessageError || !assistantMessage) {
+          throw assistantMessageError ?? new Error("Assistant message was not saved.");
+        }
+        if (citations.length) {
+          const { error: citationError } = await authenticated.from("citations").insert(
+            citations.map((citation) => ({
+              message_id: assistantMessage.id,
+              chunk_id: citation.chunkId,
+              order_index: citation.orderIndex,
+            })),
+          );
+          if (citationError) throw citationError;
+        }
+        streamEvent(controller, { type: "answer", content: answer, citations });
+      } catch (error) {
+        console.error("streamed chat failed", error instanceof Error ? error.message : "Unknown error");
+        streamEvent(controller, { type: "provider_error" });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
+}
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return jsonResponse({ error: "Method not allowed." }, 405);
@@ -170,34 +253,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ type: "answer", content: NOT_FOUND_MESSAGE, citations: [] });
     }
 
-    let answer: string;
     try {
-      answer = await generateGroundedAnswer(buildPrompt(chunks), question);
+      const upstream = await openGroundedAnswerStream(buildPrompt(chunks), question);
+      return streamedAnswerResponse(upstream, authenticated, sessionId, chunks);
     } catch (providerError) {
       console.error("DeepSeek provider error", providerError instanceof Error ? providerError.message : "Unknown provider error");
       return jsonResponse({ type: "provider_error" });
     }
-
-    const citations = selectedCitations(answer, chunks);
-    const { data: assistantMessage, error: assistantMessageError } = await authenticated
-      .from("messages")
-      .insert({ session_id: sessionId, role: "assistant", content: answer })
-      .select("id")
-      .single<{ id: string }>();
-    if (assistantMessageError || !assistantMessage) throw assistantMessageError ?? new Error("Assistant message was not saved.");
-
-    if (citations.length) {
-      const { error: citationError } = await authenticated.from("citations").insert(
-        citations.map((citation) => ({
-          message_id: assistantMessage.id,
-          chunk_id: citation.chunkId,
-          order_index: citation.orderIndex,
-        })),
-      );
-      if (citationError) throw citationError;
-    }
-
-    return jsonResponse({ type: "answer", content: answer, citations });
   } catch (error) {
     console.error("chat failed", error instanceof Error ? error.message : "Unknown error");
     return jsonResponse({ type: "provider_error" });

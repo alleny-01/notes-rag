@@ -81,6 +81,7 @@ export function InlineCitationAnswer({
           key={`${position}-${passageNumber}`}
           type="button"
           onClick={(event) => onOpenCitation(citation, event.currentTarget)}
+          data-citation-order={citation.orderIndex}
           className="mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-[var(--lilac)] px-1 align-baseline text-[10px] font-semibold text-[var(--purple)] transition hover:-translate-y-px hover:bg-[var(--purple)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--purple)] focus:ring-offset-2"
           aria-label={`Open citation ${passageNumber}: ${citation.filename}${citation.pageNumber ? `, page ${citation.pageNumber}` : ""}`}
         >
