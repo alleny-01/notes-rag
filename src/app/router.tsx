@@ -29,7 +29,7 @@ function PageNavigationLoader() {
 }
 
 function ProductApp() {
-  const { route: routeFromLocation, isNavigating } = useAppRoute();
+  const { route: routeFromLocation } = useAppRoute();
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
   const route = routeFromLocation ?? { name: "library" as const };
   const collectionState = useCollections();
@@ -76,7 +76,6 @@ function ProductApp() {
   return <>
     <CollectionShell collection={activeCollection} isRefreshing={collectionState.isFetching} onOpenCreateCollection={() => setIsCreateCollectionOpen(true)}><Suspense fallback={<PageNavigationLoader />}>{body}</Suspense></CollectionShell>
     <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={create} />
-    {isNavigating && <PageNavigationLoader />}
   </>;
 }
 

@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { navigate } from "../../../app/navigation";
+import { createClientId } from "../../../lib/clientId";
 import { SourceViewer } from "../../../components/SourceViewer/SourceViewer";
 import { CitationThreadSvg } from "../../../components/CitationThread/CitationThreadSvg";
 import { Spinner } from "../../../components/ui/spinner";
@@ -152,6 +153,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
   const [clearError, setClearError] = useState("");
   const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const shouldStickToChatBottomRef = useRef(true);
   const latestMessageRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const questionFormRef = useRef<HTMLFormElement>(null);
@@ -181,7 +183,10 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     }
 
     const observer = new IntersectionObserver(
-      ([entry]) => setIsAwayFromLatest(!entry.isIntersecting),
+      ([entry]) => {
+        shouldStickToChatBottomRef.current = entry.isIntersecting;
+        setIsAwayFromLatest(!entry.isIntersecting);
+      },
       { root: scrollArea, threshold: 0.9 },
     );
     observer.observe(latestMessage);
@@ -189,10 +194,22 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
   }, [messages.length]);
 
   const scrollToLatest = (behavior: ScrollBehavior = "smooth") => {
+    shouldStickToChatBottomRef.current = true;
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior });
   };
 
+  const handleChatScroll = () => {
+    const scrollArea = chatScrollRef.current;
+    if (!scrollArea) return;
+
+    const distanceFromBottom = scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight;
+    const isAtBottom = distanceFromBottom < 28;
+    shouldStickToChatBottomRef.current = isAtBottom;
+    setIsAwayFromLatest(!isAtBottom);
+  };
+
   useEffect(() => {
+    if (!shouldStickToChatBottomRef.current) return;
     window.requestAnimationFrame(() => scrollToLatest(messages.length > 2 ? "smooth" : "auto"));
   }, [messages.length, streamingContent]);
   const hasDocuments = collection.documents.some(
@@ -210,7 +227,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
     setDraft("");
     setMessages((current) => [
       ...current,
-      { id: crypto.randomUUID(), role: "user", content: question },
+      { id: createClientId(), role: "user", content: question },
     ]);
     try {
       const result = await sendMessage.mutateAsync({
@@ -225,7 +242,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
         setMessages((current) => [
           ...current,
           {
-            id: crypto.randomUUID(),
+            id: createClientId(),
             role: "assistant",
             kind: "rate-limited",
             content: "You’ve reached today’s limit — resets at midnight UTC.",
@@ -237,7 +254,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
         setMessages((current) => [
           ...current,
           {
-            id: crypto.randomUUID(),
+            id: createClientId(),
             role: "assistant",
             kind: "provider-error",
             content:
@@ -248,7 +265,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
       }
 
       const kind = response.citations.length ? undefined : "not-found";
-      const assistantMessageId = crypto.randomUUID();
+      const assistantMessageId = createClientId();
       setMessages((current) => [
         ...current,
         {
@@ -281,7 +298,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
       setMessages((current) => [
         ...current,
         {
-          id: crypto.randomUUID(),
+          id: createClientId(),
           role: "assistant",
           kind: "provider-error",
           content:
@@ -365,7 +382,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
       </div>
       <div ref={workspaceRef} className="relative grid h-[calc(100dvh-17rem)] min-h-[320px] flex-1 gap-1 overflow-hidden bg-[var(--paper)] shadow-[0_18px_42px_rgba(66,47,39,0.08)] lg:h-auto lg:min-h-[610px] lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <section
-          className={`${tab === "chat" ? "flex" : "hidden"} min-h-0 flex-col bg-[var(--cream)] lg:flex`}
+          className={`${tab === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[var(--cream)] lg:flex`}
         >
           <div className="flex h-12 items-center justify-between bg-[rgba(241,236,227,0.72)] px-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--muted)]">
@@ -385,7 +402,8 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
           <div className="relative min-h-0 flex-1">
             <div
               ref={chatScrollRef}
-              className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              onScroll={handleChatScroll}
+              className="absolute inset-0 min-h-0 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
             {chatHistory.isLoading && messages.length === 0 && !isSubmitting ? (
               <div className="grid min-h-[420px] place-items-center px-6 text-center">

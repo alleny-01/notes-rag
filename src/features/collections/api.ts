@@ -1,4 +1,5 @@
 import { supabase } from "../../lib/supabaseClient";
+import { createClientId } from "../../lib/clientId";
 import { createContentHash, extractText } from "../documents/extractText";
 import type { Collection, CollectionDocument } from "./types/domain";
 
@@ -98,7 +99,7 @@ export async function uploadDocument(collectionId: string, file: File) {
   throwIfError(duplicateError);
   if (duplicate) throw new Error("This document is already in this collection. We skipped it to avoid embedding the same material twice.");
 
-  const storagePath = `${userId}/${collectionId}/${crypto.randomUUID()}-${safeFilename(file.name)}`;
+  const storagePath = `${userId}/${collectionId}/${createClientId()}-${safeFilename(file.name)}`;
   const { error: storageError } = await supabase.storage.from("notes-documents").upload(storagePath, file, { cacheControl: "3600", contentType: file.type || "text/plain", upsert: false });
   throwIfError(storageError);
 
