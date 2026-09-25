@@ -159,11 +159,11 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
   }
 
   return (
-    <aside className="mx-4 mt-4 bg-[rgba(156,115,200,0.14)] px-3.5 py-3 shadow-[inset_3px_0_0_var(--purple)]">
+    <aside className="mx-4 mt-4 min-w-0 bg-[rgba(156,115,200,0.14)] px-3.5 py-3 shadow-[inset_3px_0_0_var(--purple)]">
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--purple)]">
         Cited evidence{citation.pageNumber ? ` · page ${citation.pageNumber}` : ""}
       </p>
-      <p className="mt-2 font-[var(--serif)] text-[14px] leading-6 text-[#4d3a56]">
+      <p className="mt-2 break-words font-[var(--serif)] text-[14px] leading-6 text-[#4d3a56]">
         {citation.highlightText ?? citation.content.replace(/^\s*\d+\s+/, "")}
       </p>
     </aside>
@@ -259,7 +259,7 @@ function PdfSource({
       <p className="mt-4 px-4 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
         {pageCount ? `Source page ${resolvedPage} of ${pageCount}` : "Opening PDF"}
       </p>
-      <div ref={pdfScrollRef} className="mt-3 min-h-0 flex-1 overflow-auto bg-[#e9e1d4] px-4 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div ref={pdfScrollRef} className="mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {pdfError ? (
           <div className="grid min-h-[320px] place-items-center bg-[var(--cream)] px-6 text-center">
             <div>
@@ -268,7 +268,7 @@ function PdfSource({
             </div>
           </div>
         ) : (
-          <div ref={pageViewportRef} className="relative mx-auto w-fit">
+          <div ref={pageViewportRef} className="relative mx-auto w-fit max-w-full">
             <Document
               file={sourceUrl}
               loading={<SourceLoading label="Opening your PDF…" />}
@@ -277,7 +277,7 @@ function PdfSource({
                 setPageNumber((current) => Math.min(Math.max(current, 1), numPages));
               }}
               onLoadError={() => setPdfError("We could not render this PDF. You can still use its retrieved passages in chat.")}
-              className="mx-auto w-fit"
+              className="mx-auto w-fit max-w-full"
             >
               <Page
                 pageNumber={resolvedPage}
@@ -365,9 +365,9 @@ function TextSource({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <CitedPassage citation={activeCitation} />
-      <div ref={textScrollRef} className="mt-4 min-h-0 flex-1 overflow-auto bg-[#e9e1d4] px-4 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div ref={textViewportRef} className="relative mx-auto max-w-3xl">
-          <pre className="whitespace-pre-wrap bg-white px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[#574a45] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
+      <div ref={textScrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={textViewportRef} className="relative mx-auto w-full min-w-0 max-w-3xl">
+          <pre className="w-full min-w-0 whitespace-pre-wrap break-words bg-white px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[#574a45] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
             {sourceText}
           </pre>
           <div ref={highlightLayerRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1]" />
@@ -433,7 +433,7 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
   }
 
   return (
-    <section className="flex h-full min-h-[420px] flex-col bg-[#f5f0e8] text-[#332c2d]">
+    <section className="flex h-full min-h-[420px] w-full max-w-full flex-col overflow-x-hidden bg-[#f5f0e8] text-[#332c2d]">
       <div className="flex min-h-12 items-center gap-3 bg-[rgba(223,212,197,0.45)] px-4">
         <FileText size={14} className="shrink-0" strokeWidth={1} />
         <label htmlFor="source-document" className="sr-only">Source document</label>

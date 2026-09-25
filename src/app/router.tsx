@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useSession } from "../features/auth/hooks/useSession";
 import { CollectionShell } from "../features/collections/components/CollectionShell";
 import { CreateCollectionModal } from "../features/collections/components/CreateCollectionModal";
 import { useCollections } from "../features/collections/hooks/useCollections";
-import { CollectionSettingsPage } from "../features/collections/pages/CollectionSettingsPage";
 import { LibraryPage } from "../features/collections/pages/LibraryPage";
-import { UploadPage } from "../features/collections/pages/UploadPage";
-import { WorkspacePage } from "../features/collections/pages/WorkspacePage";
 import { useUploadDocument } from "../features/documents/hooks/useUploadDocument";
 import { useDocumentStatus } from "../features/documents/hooks/useDocumentStatus";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import { navigate, useAppRoute } from "./navigation";
 import { OnboardingPage } from "../features/onboarding/pages/OnboardingPage";
+import { AppErrorBoundary } from "../components/ui/AppErrorBoundary";
+
+const UploadPage = lazy(() => import("../features/collections/pages/UploadPage").then((module) => ({ default: module.UploadPage })));
+const WorkspacePage = lazy(() => import("../features/collections/pages/WorkspacePage").then((module) => ({ default: module.WorkspacePage })));
+const CollectionSettingsPage = lazy(() => import("../features/collections/pages/CollectionSettingsPage").then((module) => ({ default: module.CollectionSettingsPage })));
 
 function SessionBootScreen() {
   return <main className="min-h-screen bg-[var(--canvas)]" aria-busy="true" />;
@@ -72,7 +74,7 @@ function ProductApp() {
   })();
 
   return <>
-    <CollectionShell collection={activeCollection} isRefreshing={collectionState.isFetching} onOpenCreateCollection={() => setIsCreateCollectionOpen(true)}>{body}</CollectionShell>
+    <CollectionShell collection={activeCollection} isRefreshing={collectionState.isFetching} onOpenCreateCollection={() => setIsCreateCollectionOpen(true)}><Suspense fallback={<PageNavigationLoader />}>{body}</Suspense></CollectionShell>
     <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={create} />
     {isNavigating && <PageNavigationLoader />}
   </>;
@@ -81,5 +83,5 @@ function ProductApp() {
 export function AppRouter() {
   const { session, isLoading } = useSession();
   if (isLoading) return <SessionBootScreen />;
-  return session ? <ProductApp /> : <OnboardingPage />;
+  return session ? <AppErrorBoundary resetKey={window.location.hash}><ProductApp /></AppErrorBoundary> : <OnboardingPage />;
 }
