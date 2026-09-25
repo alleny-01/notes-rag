@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileText, LoaderCircle, SearchX } from "lucide-react";
-import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
+import { FileText, LoaderCircle } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import type { ChatCitation, Collection, CollectionDocument } from "../../features/collections/types/domain";
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+const PdfSourceViewer = lazy(() => import("./PdfSourceViewer").then((module) => ({ default: module.PdfSourceViewer })));
 
 type SourceViewerProps = {
   collection: Collection;
@@ -149,6 +145,17 @@ function SourceLoading({ label }: { label: string }) {
   );
 }
 
+function readBlobText(blob: Blob) {
+  if (typeof blob.text === "function") return blob.text();
+
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("We could not read this note."));
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsText(blob);
+  });
+}
+
 function CitedPassage({ citation }: { citation: ChatCitation | null }) {
   if (!citation) {
     return (
@@ -170,130 +177,25 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
   );
 }
 
-function PdfSource({
-  sourceDocument,
-  citation,
-  sourceUrl,
-  onHighlightAnchorChange,
-}: {
-  sourceDocument: CollectionDocument;
-  citation: ChatCitation | null;
-  sourceUrl: string;
-  onHighlightAnchorChange?: (anchor: HTMLElement | null) => void;
-}) {
-  const [pageCount, setPageCount] = useState<number>();
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pdfError, setPdfError] = useState("");
-  const [textLayerVersion, setTextLayerVersion] = useState(0);
-  const pdfScrollRef = useRef<HTMLDivElement>(null);
-  const pageViewportRef = useRef<HTMLDivElement>(null);
-  const highlightLayerRef = useRef<HTMLDivElement>(null);
+class PdfViewerErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { error: Error | null }> {
+  state = { error: null as Error | null };
 
-  useEffect(() => {
-    setPdfError("");
-    setPageCount(undefined);
-    setPageNumber(citation?.documentId === sourceDocument.id && citation.pageNumber ? citation.pageNumber : 1);
-  }, [citation?.chunkId, citation?.documentId, citation?.pageNumber, sourceDocument.id]);
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
 
-  const resolvedPage = Math.min(Math.max(pageNumber, 1), pageCount ?? pageNumber);
-  const activeCitation = citation?.documentId === sourceDocument.id && citation.pageNumber === resolvedPage
-    ? citation
-    : null;
-  const onRenderTextLayerSuccess = useCallback(() => {
-    setTextLayerVersion((version) => version + 1);
-  }, []);
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("NotesRAG PDF viewer error", error, info.componentStack);
+  }
 
-  useEffect(() => {
-    const viewport = pageViewportRef.current;
-    const highlightLayer = highlightLayerRef.current;
-    if (!viewport || !highlightLayer) return;
-    highlightLayer.replaceChildren();
-    if (!activeCitation?.highlightText) {
-      onHighlightAnchorChange?.(null);
-      return;
-    }
+  componentDidUpdate(previous: { resetKey: string }) {
+    if (previous.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null });
+  }
 
-    const range = findClaimRange(viewport, activeCitation.highlightText);
-    if (!range) {
-      onHighlightAnchorChange?.(null);
-      return;
-    }
-
-    const viewportRect = viewport.getBoundingClientRect();
-    const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
-    let firstHighlight: HTMLElement | null = null;
-    for (const rect of rects) {
-      const highlight = window.document.createElement("span");
-      highlight.style.position = "absolute";
-      highlight.style.left = `${rect.left - viewportRect.left}px`;
-      highlight.style.top = `${rect.top - viewportRect.top}px`;
-      highlight.style.width = `${rect.width}px`;
-      highlight.style.height = `${rect.height}px`;
-      highlight.style.borderRadius = "2px";
-      highlight.style.backgroundColor = "rgba(156, 115, 200, 0.42)";
-      highlight.style.boxShadow = "0 0 0 1px rgba(95, 61, 130, 0.18)";
-      highlightLayer.append(highlight);
-      firstHighlight ??= highlight;
-    }
-
-    const firstRect = rects[0];
-    if (!firstRect || !pdfScrollRef.current) {
-      onHighlightAnchorChange?.(null);
-      return;
-    }
-    onHighlightAnchorChange?.(firstHighlight);
-    const scrollArea = pdfScrollRef.current;
-    const destination = Math.max(
-      0,
-      firstRect.top - scrollArea.getBoundingClientRect().top + scrollArea.scrollTop - scrollArea.clientHeight * 0.32,
-    );
-    const frame = window.requestAnimationFrame(() => {
-      scrollArea.scrollTo({ top: destination, behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeCitation?.chunkId, activeCitation?.highlightText, onHighlightAnchorChange, resolvedPage, textLayerVersion]);
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <CitedPassage citation={activeCitation} />
-      <p className="mt-4 px-4 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
-        {pageCount ? `Source page ${resolvedPage} of ${pageCount}` : "Opening PDF"}
-      </p>
-      <div ref={pdfScrollRef} className="mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {pdfError ? (
-          <div className="grid min-h-[320px] place-items-center bg-[var(--cream)] px-6 text-center">
-            <div>
-              <SearchX size={20} className="mx-auto text-[var(--signal)]" strokeWidth={1} />
-              <p className="mt-3 text-[12px] leading-5 text-[var(--body)]">{pdfError}</p>
-            </div>
-          </div>
-        ) : (
-          <div ref={pageViewportRef} className="relative mx-auto w-fit max-w-full">
-            <Document
-              file={sourceUrl}
-              loading={<SourceLoading label="Opening your PDF…" />}
-              onLoadSuccess={({ numPages }) => {
-                setPageCount(numPages);
-                setPageNumber((current) => Math.min(Math.max(current, 1), numPages));
-              }}
-              onLoadError={() => setPdfError("We could not render this PDF. You can still use its retrieved passages in chat.")}
-              className="mx-auto w-fit max-w-full"
-            >
-              <Page
-                pageNumber={resolvedPage}
-                width={Math.min(720, typeof window === "undefined" ? 720 : Math.max(280, window.innerWidth > 1024 ? window.innerWidth * 0.32 : window.innerWidth - 64))}
-                renderAnnotationLayer={false}
-                renderTextLayer
-                onRenderTextLayerSuccess={onRenderTextLayerSuccess}
-                className="bg-white shadow-[0_12px_26px_rgba(66,47,39,0.16)]"
-              />
-            </Document>
-            <div ref={highlightLayerRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1]" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  render() {
+    if (!this.state.error) return this.props.children;
+    return <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">This PDF viewer could not start on this browser. Your workspace and retrieved chat passages are still available.</p></div>;
+  }
 }
 
 function TextSource({
@@ -316,7 +218,9 @@ function TextSource({
     const viewport = textViewportRef.current;
     const highlightLayer = highlightLayerRef.current;
     if (!viewport || !highlightLayer) return;
-    highlightLayer.replaceChildren();
+    while (highlightLayer.firstChild) {
+      highlightLayer.removeChild(highlightLayer.firstChild);
+    }
     if (!activeCitation?.highlightText) {
       onHighlightAnchorChange?.(null);
       return;
@@ -414,7 +318,9 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
         setSource({ status: "error", message: error?.message ?? "We could not open this note." });
         return;
       }
-      setSource({ status: "ready", text: await data.text() });
+      const text = await readBlobText(data);
+      if (!active) return;
+      setSource({ status: "ready", text });
     };
     void load();
     return () => { active = false; };
@@ -451,7 +357,13 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
       {source.status === "error" && (
         <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">{source.message}</p></div>
       )}
-      {source.status === "ready" && isPdf(selectedDocument) && source.url && <PdfSource sourceDocument={selectedDocument} citation={citation} sourceUrl={source.url} onHighlightAnchorChange={onHighlightAnchorChange} />}
+      {source.status === "ready" && isPdf(selectedDocument) && source.url && (
+        <PdfViewerErrorBoundary resetKey={`${selectedDocument.id}:${source.url}`}>
+          <Suspense fallback={<SourceLoading label="Loading PDF viewer…" />}>
+            <PdfSourceViewer sourceDocument={selectedDocument} citation={citation} sourceUrl={source.url} onHighlightAnchorChange={onHighlightAnchorChange} />
+          </Suspense>
+        </PdfViewerErrorBoundary>
+      )}
       {source.status === "ready" && !isPdf(selectedDocument) && <TextSource sourceDocument={selectedDocument} citation={citation} sourceText={source.text ?? ""} onHighlightAnchorChange={onHighlightAnchorChange} />}
     </section>
   );
