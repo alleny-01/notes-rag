@@ -493,7 +493,7 @@ export function WorkspacePage({ collection }: WorkspacePageProps) {
           </div>
         </section>
         <div
-          className={`${tab === "notes" ? "block" : "hidden"} min-h-0 overflow-y-auto lg:block`}
+          className={`${tab === "notes" ? "block" : "hidden"} min-h-0 overflow-y-auto overflow-x-hidden [overscroll-behavior-x:none] touch-pan-y lg:block`}
         >
           <SourceViewer collection={collection} citation={activeCitation} onHighlightAnchorChange={onSourceHighlightAnchorChange} />
         </div>
