@@ -8,6 +8,15 @@ type PromiseWithResolvers = <T>() => {
   reject: (reason?: unknown) => void;
 };
 
+type IteratorConstructor = (() => unknown) & {
+  prototype?: {
+    map?: unknown;
+    filter?: unknown;
+    take?: unknown;
+    toArray?: unknown;
+  };
+};
+
 declare global {
   interface PromiseConstructor {
     withResolvers?: PromiseWithResolvers;
@@ -41,10 +50,20 @@ if (typeof URL !== "undefined" && typeof URL.parse !== "function") {
 }
 
 export function pdfRuntimeIsSupported() {
+  const iterator = (globalThis as unknown as { Iterator?: IteratorConstructor }).Iterator;
+  const hasIteratorHelpers = typeof iterator === "function"
+    && typeof iterator.prototype?.map === "function"
+    && typeof iterator.prototype?.filter === "function"
+    && typeof iterator.prototype?.take === "function"
+    && typeof iterator.prototype?.toArray === "function";
+
   return typeof Promise !== "undefined"
+    && typeof Promise.withResolvers === "function"
+    && typeof URL?.parse === "function"
     && typeof Uint8Array !== "undefined"
     && typeof Worker !== "undefined"
-    && typeof TextDecoder !== "undefined";
+    && typeof TextDecoder !== "undefined"
+    && hasIteratorHelpers;
 }
 
 export function pdfRuntimeMessage() {
