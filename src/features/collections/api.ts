@@ -92,6 +92,13 @@ function safeFilename(filename: string) {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120) || "document";
 }
 
+function resolveContentType(file: File) {
+  const filename = file.name.toLowerCase();
+  if (filename.endsWith(".md")) return "text/markdown";
+  if (filename.endsWith(".txt")) return "text/plain";
+  return file.type || "application/octet-stream";
+}
+
 function isPdfUpload(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
@@ -114,7 +121,7 @@ export async function uploadDocument(collectionId: string, file: File) {
   if (duplicate) throw new Error("This document is already in this collection. We skipped it to avoid embedding the same material twice.");
 
   const storagePath = `${userId}/${collectionId}/${createClientId()}-${safeFilename(file.name)}`;
-  const { error: storageError } = await supabase.storage.from("notes-documents").upload(storagePath, file, { cacheControl: "3600", contentType: file.type || "text/plain", upsert: false });
+  const { error: storageError } = await supabase.storage.from("notes-documents").upload(storagePath, file, { cacheControl: "3600", contentType: resolveContentType(file), upsert: false });
   throwIfError(storageError);
 
   const { data, error } = await supabase.from("documents").insert({

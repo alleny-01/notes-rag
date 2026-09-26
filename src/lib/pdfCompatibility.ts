@@ -17,6 +17,15 @@ type IteratorConstructor = (() => unknown) & {
   };
 };
 
+type IteratorResultLike<T> = { value: T; done?: boolean };
+type IteratorLike<T> = { next(): IteratorResultLike<T> };
+type IteratorHelperPrototype = {
+  toArray?: (this: IteratorLike<unknown>) => unknown[];
+  map?: (this: IteratorLike<unknown>, fn: (value: unknown, index: number) => unknown) => IterableIterator<unknown>;
+  filter?: (this: IteratorLike<unknown>, fn: (value: unknown, index: number) => boolean) => IterableIterator<unknown>;
+  take?: (this: IteratorLike<unknown>, count: number) => IterableIterator<unknown>;
+};
+
 declare global {
   interface PromiseConstructor {
     withResolvers?: PromiseWithResolvers;
@@ -46,6 +55,36 @@ if (typeof URL !== "undefined" && typeof URL.parse !== "function") {
     } catch {
       return null;
     }
+  };
+}
+
+function drainIterator<T>(iterator: IteratorLike<T>) {
+  const items: T[] = [];
+  let result = iterator.next();
+  while (!result.done) {
+    items.push(result.value);
+    result = iterator.next();
+  }
+  return items;
+}
+
+// Safari can expose Iterator Helpers that exist but do not return properly
+// iterable results. Replace the helpers after core-js has initialised rather
+// than trusting feature detection, so PDF.js sees one predictable behavior.
+const iteratorConstructor = (globalThis as unknown as { Iterator?: { prototype?: IteratorHelperPrototype } }).Iterator;
+if (iteratorConstructor?.prototype) {
+  const prototype = iteratorConstructor.prototype;
+  prototype.toArray = function (this: IteratorLike<unknown>) {
+    return drainIterator(this);
+  };
+  prototype.map = function (this: IteratorLike<unknown>, fn: (value: unknown, index: number) => unknown) {
+    return drainIterator(this).map(fn)[Symbol.iterator]();
+  };
+  prototype.filter = function (this: IteratorLike<unknown>, fn: (value: unknown, index: number) => boolean) {
+    return drainIterator(this).filter(fn)[Symbol.iterator]();
+  };
+  prototype.take = function (this: IteratorLike<unknown>, count: number) {
+    return drainIterator(this).slice(0, count)[Symbol.iterator]();
   };
 }
 
