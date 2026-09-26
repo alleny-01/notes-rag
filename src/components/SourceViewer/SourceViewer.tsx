@@ -194,7 +194,7 @@ class PdfViewerErrorBoundary extends Component<{ children: ReactNode; resetKey: 
 
   render() {
     if (!this.state.error) return this.props.children;
-    return <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">This PDF viewer could not start on this browser. Your workspace and retrieved chat passages are still available.</p></div>;
+    return <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">PDF viewer crashed: {this.state.error.message}</p></div>;
   }
 }
 

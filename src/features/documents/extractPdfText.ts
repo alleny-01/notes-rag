@@ -57,6 +57,6 @@ export async function extractPdfText(file: File): Promise<ExtractedDocument> {
       fileSize: file.size,
     });
     if (error instanceof Error && error.message.includes("no selectable text")) throw error;
-    throw new Error("NotesRAG could not read this PDF on this device. Make sure it is a text-based PDF and try again.");
+    throw new Error(`NotesRAG could not read this PDF: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
