@@ -1,6 +1,7 @@
 import { supabase } from "../../lib/supabaseClient";
 import { createClientId } from "../../lib/clientId";
 import { createContentHash, extractText } from "../documents/extractText";
+import type { ExtractedDocument } from "../documents/extractText";
 import type { Collection, CollectionDocument } from "./types/domain";
 
 type CollectionRow = { id: string; name: string; created_at: string; last_opened_at?: string | null; open_count?: number | null; documents?: DocumentRow[] };
@@ -91,9 +92,22 @@ function safeFilename(filename: string) {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120) || "document";
 }
 
+function isPdfUpload(file: File) {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+async function extractUploadText(file: File): Promise<ExtractedDocument> {
+  if (isPdfUpload(file)) {
+    const { extractPdfText } = await import("../documents/extractPdfText");
+    return extractPdfText(file);
+  }
+
+  return extractText(file);
+}
+
 export async function uploadDocument(collectionId: string, file: File) {
   const userId = await currentUserId();
-  const extracted = await extractText(file);
+  const extracted = await extractUploadText(file);
   const contentHash = await createContentHash(extracted.normalizedText);
   const { data: duplicate, error: duplicateError } = await supabase.from("documents").select("id").eq("collection_id", collectionId).eq("content_hash", contentHash).maybeSingle();
   throwIfError(duplicateError);
