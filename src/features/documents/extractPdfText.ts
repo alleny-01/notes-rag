@@ -50,6 +50,12 @@ export async function extractPdfText(file: File): Promise<ExtractedDocument> {
       pageCount: pdf.numPages,
     };
   } catch (error) {
+    console.error("NotesRAG PDF extraction failed", {
+      error,
+      filename: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+    });
     if (error instanceof Error && error.message.includes("no selectable text")) throw error;
     throw new Error("NotesRAG could not read this PDF on this device. Make sure it is a text-based PDF and try again.");
   }
