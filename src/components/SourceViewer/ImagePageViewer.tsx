@@ -39,7 +39,7 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
         Cited evidence
         {citation.pageNumber ? ` · page ${citation.pageNumber}` : ""}
       </p>
-      <p className="mt-2 break-words font-[var(--serif)] text-[14px] leading-6 text-[#4d3a56]">
+      <p className="mt-2 break-words font-[var(--serif)] text-[14px] leading-6 text-[var(--body)]">
         {citation.highlightText ?? citation.content.replace(/^\s*\d+\s+/, "")}
       </p>
     </aside>
@@ -249,7 +249,7 @@ export function ImagePageViewer({
       </p>
       <div
         ref={scrollRef}
-        className="mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[var(--paper)] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {status === "loading" || status === "backfill" ? (
           <Loading

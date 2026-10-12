@@ -215,7 +215,7 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
         Cited evidence
         {citation.pageNumber ? ` · page ${citation.pageNumber}` : ""}
       </p>
-      <p className="mt-2 break-words font-[var(--serif)] text-[14px] leading-6 text-[#4d3a56]">
+      <p className="mt-2 break-words font-[var(--serif)] text-[14px] leading-6 text-[var(--body)]">
         {citation.highlightText ?? citation.content.replace(/^\s*\d+\s+/, "")}
       </p>
     </aside>
@@ -337,13 +337,13 @@ function TextSource({
       <CitedPassage citation={activeCitation} />
       <div
         ref={textScrollRef}
-        className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[var(--paper)] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div
           ref={textViewportRef}
           className="relative mx-auto w-full min-w-0 max-w-3xl"
         >
-          <pre className="w-full min-w-0 whitespace-pre-wrap break-words bg-white px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[#574a45] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
+          <pre className="w-full min-w-0 whitespace-pre-wrap break-words bg-[var(--surface)] px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[var(--body)] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
             {sourceText}
           </pre>
           <div
@@ -413,7 +413,7 @@ export function SourceViewer({
 
   if (!selectedDocument) {
     return (
-      <section className="grid min-h-[420px] place-items-center bg-[#f5f0e8] p-8 text-center text-[#332c2d]">
+      <section className="grid min-h-[420px] place-items-center bg-[var(--cream)] p-8 text-center text-[var(--ink)]">
         <div>
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e9dfd1] text-[var(--purple)]">
             <FileText size={20} strokeWidth={1} />
@@ -421,7 +421,7 @@ export function SourceViewer({
           <h2 className="mt-4 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.055em]">
             No notes to read yet.
           </h2>
-          <p className="mt-3 max-w-xs text-[13px] leading-6 text-[#756b64]">
+          <p className="mt-3 max-w-xs text-[13px] leading-6 text-[var(--body)]">
             Add a text-based PDF or note before opening a conversation.
           </p>
         </div>
@@ -430,8 +430,8 @@ export function SourceViewer({
   }
 
   return (
-    <section className="flex h-full min-h-[420px] w-full max-w-full flex-col overflow-x-hidden bg-[#f5f0e8] text-[#332c2d]">
-      <div className="flex min-h-12 items-center gap-3 bg-[rgba(223,212,197,0.45)] px-4">
+    <section className="flex h-full min-h-[420px] w-full max-w-full flex-col overflow-x-hidden bg-[var(--cream)] text-[var(--ink)]">
+      <div className="flex min-h-12 items-center gap-3 bg-[var(--paper)] px-4">
         <FileText size={14} className="shrink-0" strokeWidth={1} />
         <label htmlFor="source-document" className="sr-only">
           Source document
@@ -440,7 +440,7 @@ export function SourceViewer({
           id="source-document"
           value={selectedDocument.id}
           onChange={(event) => setSelectedDocumentId(event.target.value)}
-          className="min-w-0 flex-1 truncate bg-transparent text-[11px] text-[#776d65] outline-none"
+          className="min-w-0 flex-1 truncate bg-transparent text-[11px] text-[var(--body)] outline-none"
         >
           {sourceDocuments.map((sourceDocument) => (
             <option key={sourceDocument.id} value={sourceDocument.id}>
@@ -448,7 +448,7 @@ export function SourceViewer({
             </option>
           ))}
         </select>
-        <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-[#91857a]">
+        <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
           Source
         </span>
       </div>

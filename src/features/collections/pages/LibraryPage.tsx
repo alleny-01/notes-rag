@@ -22,6 +22,7 @@ import {
 import type { Collection } from "../types/domain";
 import { navigate } from "../../../app/navigation";
 import { BulkDeleteCollectionsDialog } from "../components/BulkDeleteCollectionsDialog";
+import { ParticleField } from "../../onboarding/components/ParticleField";
 
 type LibraryPageProps = {
   collections: Collection[];
@@ -124,9 +125,6 @@ function FirstCollectionCanvas({
           <div className="grid h-10 w-10 place-items-center rounded-md bg-[var(--lilac)] text-[var(--purple)] transition duration-300 ease-out hover:rotate-6 hover:scale-110">
             <FolderPlus size={19} strokeWidth={1} />
           </div>
-          <p className="mt-7 text-[10px] font-semibold tracking-[0.14em] text-[var(--purple)]">
-            Begin with one context
-          </p>
           <h2 className="mt-3 font-[var(--serif)] text-[15px] font-light leading-[1.15] tracking-wide">
             Create a shelf for the notes that belong together.
           </h2>
@@ -652,68 +650,79 @@ export function LibraryPage({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1400px] px-4 py-9 sm:px-6 sm:py-12 lg:px-9">
-      <LibraryHeader count={collections.length} />
-      {collections.length ? (
-        <>
-          <CollectionSearch
-            query={query}
-            onChange={setQuery}
-            matches={matchingCollections.length}
-            order={order}
-            onOrderChange={setOrder}
-          />
-          <CollectionShelf
-            collections={matchingCollections}
-            isSelecting={isSelecting}
-            onCancelSelection={cancelSelection}
-            onClear={clearFilters}
-            onDeleteAll={() => setDeleteTarget("all")}
-            onDeleteSelected={() => setDeleteTarget("selected")}
-            onOpenCollection={onOpenCollection}
-            onOpenCreateCollection={onOpenCreateCollection}
-            onStartSelection={() => setIsSelecting(true)}
-            onToggleAllVisible={toggleAllVisible}
-            onToggleSelection={toggleSelection}
-            selectedCount={selectedCollectionIds.length}
-            selectedIds={selectedIds}
-            totalCollectionCount={collections.length}
-          />
-          {deleteError && (
-            <p
-              className="mt-4 bg-[#fff7f7] px-3 py-2 text-[12px] text-[#8f3d42]"
-              role="alert"
-            >
-              {deleteError}
-            </p>
-          )}
-          <LibrarySignal collections={matchingCollections} />
-        </>
-      ) : (
-        <FirstCollectionCanvas
-          onOpenCreateCollection={onOpenCreateCollection}
-          onTrySample={onTrySample}
-        />
-      )}
-      <section className="mt-10 flex flex-col gap-3 pt-5 text-[11px] text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
-        <span className="inline-flex items-center gap-2">
-          <Layers3 size={14} className="text-[var(--purple)]" strokeWidth={1} />{" "}
-          Every collection keeps its sources and conversations in one place.
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <MessageSquareText size={14} strokeWidth={1} /> Answers will always
-          point back to a passage.
-        </span>
-      </section>
-      <BulkDeleteCollectionsDialog
-        count={idsPendingDeletion.length}
-        isDeleting={isDeleting}
-        isOpen={deleteTarget !== null}
-        onClose={() => {
-          if (!isDeleting) setDeleteTarget(null);
-        }}
-        onConfirm={confirmDeletion}
+    <main className="relative isolate mx-auto w-full max-w-[1400px] overflow-hidden px-4 py-9 sm:px-6 sm:py-12 lg:px-9">
+      <ParticleField
+        particleCount={96}
+        interactive={false}
+        className="app-particle-field"
       />
+      <div className="relative z-[1]">
+        <LibraryHeader count={collections.length} />
+        {collections.length ? (
+          <>
+            <CollectionSearch
+              query={query}
+              onChange={setQuery}
+              matches={matchingCollections.length}
+              order={order}
+              onOrderChange={setOrder}
+            />
+            <CollectionShelf
+              collections={matchingCollections}
+              isSelecting={isSelecting}
+              onCancelSelection={cancelSelection}
+              onClear={clearFilters}
+              onDeleteAll={() => setDeleteTarget("all")}
+              onDeleteSelected={() => setDeleteTarget("selected")}
+              onOpenCollection={onOpenCollection}
+              onOpenCreateCollection={onOpenCreateCollection}
+              onStartSelection={() => setIsSelecting(true)}
+              onToggleAllVisible={toggleAllVisible}
+              onToggleSelection={toggleSelection}
+              selectedCount={selectedCollectionIds.length}
+              selectedIds={selectedIds}
+              totalCollectionCount={collections.length}
+            />
+            {deleteError && (
+              <p
+                className="mt-4 bg-[#fff7f7] px-3 py-2 text-[12px] text-[#8f3d42]"
+                role="alert"
+              >
+                {deleteError}
+              </p>
+            )}
+            <LibrarySignal collections={matchingCollections} />
+          </>
+        ) : (
+          <FirstCollectionCanvas
+            onOpenCreateCollection={onOpenCreateCollection}
+            onTrySample={onTrySample}
+          />
+        )}
+        <section className="mt-10 flex flex-col gap-3 pt-5 text-[11px] text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-center gap-2">
+            <Layers3
+              size={14}
+              className="text-[var(--purple)]"
+              strokeWidth={1}
+            />{" "}
+            Every collection keeps its sources and conversations in one place.
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <MessageSquareText size={14} strokeWidth={1} /> Answers will always
+            point back to a passage.
+          </span>
+        </section>
+        <BulkDeleteCollectionsDialog
+          count={idsPendingDeletion.length}
+          isDeleting={isDeleting}
+          isOpen={deleteTarget !== null}
+          onClose={() => {
+            if (!isDeleting) setDeleteTarget(null);
+          }}
+          onConfirm={confirmDeletion}
+        />
+      </div>
     </main>
   );
 }

@@ -16,6 +16,7 @@
   --gold: #d5ae63;
   --signal: #8f3d42;
   --cream: #fffdf8;
+  --surface: #ffffff;
   --serif: "Fuzzy Bubbles", sans-serif;
   --sans: "Fuzzy Bubbles", sans-serif;
   --display: var(--serif);
@@ -1674,8 +1675,8 @@ html[data-theme="dark"] .product-app {
   --paper: #27212b;
   --cream: #211c24;
   --ink: #f7f0ef;
-  --body: #d3c8cf;
-  --muted: #aaa0a8;
+  --body: #eee5eb;
+  --muted: #cbbec8;
   --line: #443a46;
   --dark: #120f14;
   --raised: #2e2731;
@@ -1683,6 +1684,7 @@ html[data-theme="dark"] .product-app {
   --purple: #b990e1;
   --purple-dark: #d4b6ed;
   --signal: #eb9299;
+  --surface: #2e2731;
 }
 
 html[data-text-size="s"] {
@@ -1693,7 +1695,16 @@ html[data-text-size="l"] {
 }
 
 html[data-theme="dark"] .product-app .bg-white {
-  background-color: #2e2731;
+  background-color: var(--surface);
+}
+
+.app-particle-field {
+  opacity: 0.18;
+}
+
+html[data-theme="dark"] .product-app .app-particle-field {
+  filter: brightness(1.7) saturate(1.15);
+  opacity: 0.22;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1702,8 +1713,8 @@ html[data-theme="dark"] .product-app .bg-white {
     --paper: #27212b;
     --cream: #211c24;
     --ink: #f7f0ef;
-    --body: #d3c8cf;
-    --muted: #aaa0a8;
+    --body: #eee5eb;
+    --muted: #cbbec8;
     --line: #443a46;
     --dark: #120f14;
     --raised: #2e2731;
@@ -1711,6 +1722,16 @@ html[data-theme="dark"] .product-app .bg-white {
     --purple: #b990e1;
     --purple-dark: #d4b6ed;
     --signal: #eb9299;
+    --surface: #2e2731;
+  }
+
+  html[data-theme="system"] .product-app .bg-white {
+    background-color: var(--surface);
+  }
+
+  html[data-theme="system"] .product-app .app-particle-field {
+    filter: brightness(1.7) saturate(1.15);
+    opacity: 0.22;
   }
 }
 
