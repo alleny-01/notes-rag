@@ -16,6 +16,8 @@ const PRIMARY = "68, 41, 94";
 
 type ParticleFieldProps = {
   particleCount?: number;
+  interactive?: boolean;
+  className?: string;
 };
 
 /**
@@ -23,7 +25,11 @@ type ParticleFieldProps = {
  * makes the interaction discoverable on touch screens; fine pointers additionally
  * bend the current around the cursor.
  */
-export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
+export function ParticleField({
+  particleCount = 180,
+  interactive = true,
+  className = "",
+}: ParticleFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -36,9 +42,9 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
     const context = canvas.getContext("2d");
     if (!context) return;
 
-    const hoverEnabled = window.matchMedia(
-      "(hover: hover) and (pointer: fine)",
-    ).matches;
+    const hoverEnabled =
+      interactive &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     const pointer = { x: -1000, y: -1000, active: false };
     let particles: Particle[] = [];
     let width = 0;
@@ -141,7 +147,8 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
     const resizeObserver = new ResizeObserver(resize);
     resize();
     resizeObserver.observe(canvas);
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    if (hoverEnabled)
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("blur", onWindowBlur);
     frame = requestAnimationFrame(render);
 
@@ -151,9 +158,13 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("blur", onWindowBlur);
     };
-  }, [particleCount]);
+  }, [interactive, particleCount]);
 
   return (
-    <canvas ref={canvasRef} className="particle-field" aria-hidden="true" />
+    <canvas
+      ref={canvasRef}
+      className={`particle-field ${className}`}
+      aria-hidden="true"
+    />
   );
 }

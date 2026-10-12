@@ -635,7 +635,7 @@ export function WorkspacePage({ collection, onTrySample }: WorkspacePageProps) {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-[1600px] flex-col px-4 py-5 sm:px-6 lg:h-[calc(100vh-6.75rem)] lg:px-9 lg:py-7">
+    <main className="mx-auto flex h-[calc(100dvh-6.75rem)] min-h-[32rem] w-full max-w-[1600px] flex-col px-4 py-5 sm:px-6 lg:px-9 lg:py-7">
       <div className="mb-4 flex items-center justify-between lg:mb-5">
         <div>
           <p className="text-[10px] font-semibold tracking-[0.13em] text-[var(--purple)]">
@@ -672,12 +672,12 @@ export function WorkspacePage({ collection, onTrySample }: WorkspacePageProps) {
       </div>
       <div
         ref={workspaceRef}
-        className="relative grid h-[calc(100dvh-17rem)] min-h-[320px] flex-1 gap-1 overflow-hidden bg-[var(--paper)] shadow-[0_18px_42px_rgba(66,47,39,0.08)] lg:h-auto lg:min-h-[610px] lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]"
+        className="relative grid min-h-0 flex-1 gap-1 overflow-hidden bg-[var(--paper)] shadow-[0_18px_42px_rgba(66,47,39,0.08)] lg:min-h-[610px] lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]"
       >
         <section
           className={`${tab === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[var(--cream)] lg:flex`}
         >
-          <div className="flex h-12 items-center justify-between bg-[rgba(241,236,227,0.72)] px-4">
+          <div className="flex h-12 items-center justify-between bg-[var(--paper)] px-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[var(--muted)]">
               Conversation
             </span>
