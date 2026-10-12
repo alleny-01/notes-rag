@@ -12,7 +12,8 @@ type VoyageResponse = {
 
 async function embed(input: string[], inputType: VoyageInputType) {
   const apiKey = Deno.env.get("VOYAGE_API_KEY");
-  if (!apiKey) throw new Error("VOYAGE_API_KEY is not configured for this Edge Function.");
+  if (!apiKey)
+    throw new Error("VOYAGE_API_KEY is not configured for this Edge Function.");
 
   const response = await fetch(VOYAGE_EMBEDDINGS_URL, {
     method: "POST",
@@ -32,11 +33,18 @@ async function embed(input: string[], inputType: VoyageInputType) {
 
   const result = (await response.json()) as VoyageResponse;
   if (!response.ok || !result.data) {
-    throw new Error(result.detail ?? result.message ?? "Voyage could not create embeddings.");
+    throw new Error(
+      result.detail ?? result.message ?? "Voyage could not create embeddings.",
+    );
   }
 
-  const ordered = [...result.data].sort((a, b) => a.index - b.index).map((item) => item.embedding);
-  if (ordered.length !== input.length || ordered.some((vector) => vector.length !== OUTPUT_DIMENSION)) {
+  const ordered = [...result.data]
+    .sort((a, b) => a.index - b.index)
+    .map((item) => item.embedding);
+  if (
+    ordered.length !== input.length ||
+    ordered.some((vector) => vector.length !== OUTPUT_DIMENSION)
+  ) {
     throw new Error("Voyage returned an unexpected embedding response.");
   }
   return ordered;

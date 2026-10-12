@@ -4,7 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#faf9f5" />
-    <meta name="description" content="A citation-first study space for your own notes." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <script>
+      try {
+        var s = JSON.parse(
+          localStorage.getItem("notesrag:user-settings") || "{}",
+        );
+        document.documentElement.dataset.theme = s.theme || "system";
+        document.documentElement.dataset.textSize = s.textSize || "m";
+        document.documentElement.dataset.reduceMotion = String(
+          s.reduceMotion === "on",
+        );
+      } catch (e) {}
+    </script>
+    <meta name="theme-color" content="#faf9f5" />
+    <meta
+      name="description"
+      content="A citation-first study space for your own notes."
+    />
     <link rel="icon" type="image/png" href="favicon.png" />
     <title>NotesRAG — Study From What's Actually There.</title>
   </head>
@@ -13,4 +32,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

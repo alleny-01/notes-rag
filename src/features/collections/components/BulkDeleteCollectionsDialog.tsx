@@ -33,7 +33,10 @@ export function BulkDeleteCollectionsDialog({
   const collectionLabel = count === 1 ? "collection" : "collections";
 
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center p-4 sm:p-6" role="presentation">
+    <div
+      className="fixed inset-0 z-[80] grid place-items-center p-4 sm:p-6"
+      role="presentation"
+    >
       <button
         type="button"
         aria-label="Cancel bulk collection deletion"
@@ -64,11 +67,15 @@ export function BulkDeleteCollectionsDialog({
         <p className="mt-5 text-[10px] font-semibold tracking-[0.14em] text-[#963e43]">
           Permanent action
         </p>
-        <h2 id={titleId} className="mt-2 font-[var(--serif)] text-[19px] font-light tracking-[-0.045em] text-[var(--ink)]">
+        <h2
+          id={titleId}
+          className="mt-2 font-[var(--serif)] text-[19px] font-light tracking-[-0.045em] text-[var(--ink)]"
+        >
           Delete {count} {collectionLabel}?
         </h2>
         <p className="mt-3 max-w-md text-[13px] leading-6 text-[var(--body)]">
-          This removes the selected collections, their documents, and their stored source files. This action cannot be undone.
+          This removes the selected collections, their documents, and their
+          stored source files. This action cannot be undone.
         </p>
         <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
@@ -86,9 +93,14 @@ export function BulkDeleteCollectionsDialog({
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#963e43] px-4 text-[12px] font-medium text-white transition duration-200 hover:-translate-y-px hover:bg-[#783034] active:translate-y-0 disabled:cursor-wait disabled:opacity-70"
           >
             {isDeleting ? (
-              <><Spinner className="size-3.5 animate-spin" /> Deleting…</>
+              <>
+                <Spinner className="size-3.5 animate-spin" /> Deleting…
+              </>
             ) : (
-              <><Trash2 size={14} strokeWidth={1} /> Delete {count} {collectionLabel}</>
+              <>
+                <Trash2 size={14} strokeWidth={1} /> Delete {count}{" "}
+                {collectionLabel}
+              </>
             )}
           </button>
         </div>

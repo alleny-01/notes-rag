@@ -6,7 +6,7 @@ import { embedQuery } from "../_shared/voyage.ts";
 
 // Tuned against short study-note questions. Keep this aligned with retrieve-chunks
 // when manually validating retrieval quality; raise it only if irrelevant passages appear.
-const SIMILARITY_THRESHOLD = 0.40;
+const SIMILARITY_THRESHOLD = 0.4;
 const RETRIEVAL_LIMIT = 5;
 const NOT_FOUND_MESSAGE = "Nothing in your notes covers that yet.";
 
@@ -15,6 +15,7 @@ type ChatRequest = {
   sessionId?: unknown;
   documentId?: unknown;
   question?: unknown;
+  answerStyle?: unknown;
 };
 
 type RetrievedChunk = {
@@ -39,12 +40,16 @@ type Citation = {
 type SessionRecord = { id: string; collection_id: string };
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function nextUtcMidnight() {
   const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  ).toISOString();
 }
 
 function configuredDailyLimit() {
@@ -52,19 +57,35 @@ function configuredDailyLimit() {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
-function buildPrompt(chunks: RetrievedChunk[]) {
+function buildPrompt(
+  chunks: RetrievedChunk[],
+  answerStyle: "concise" | "balanced" | "detailed",
+) {
   const passages = chunks
-    .map((chunk, index) => `[${index + 1}] (${chunk.filename}${chunk.page_number ? `, p.${chunk.page_number}` : ""})\n${chunk.content}`)
+    .map(
+      (chunk, index) =>
+        `[${index + 1}] (${chunk.filename}${chunk.page_number ? `, p.${chunk.page_number}` : ""})\n${chunk.content}`,
+    )
     .join("\n\n");
 
-  return `Answer only using the supplied passages. Do not use outside knowledge or make unsupported inferences. Give a direct, useful study answer: use a short paragraph for a definition, and concise bullets when the question asks for functions, roles, steps, or several items. For every cited factual claim, preserve the source wording as closely as possible: the sentence or clause immediately before [1], [2], etc. must be a direct or near-direct transcription of the cited passage, not a loose paraphrase. Cite every factual claim inline using only the supplied passage numbers. For a multiple-choice question with options in the user message, first write "Answer: <letter or option>" and cite the source; then give one brief source-grounded reason. Never invent an option or select one without support in the passages. If the passages do not contain the answer, say so directly.\n\nPassages:\n${passages}`;
+  const styleInstruction =
+    answerStyle === "concise"
+      ? "Keep the response as short as the evidence allows."
+      : answerStyle === "detailed"
+        ? "Use a fuller explanation while remaining strictly within the evidence."
+        : "";
+  return `Answer only using the supplied passages. Do not use outside knowledge or make unsupported inferences. Give a direct, useful study answer: use a short paragraph for a definition, and concise bullets when the question asks for functions, roles, steps, or several items. For every cited factual claim, preserve the source wording as closely as possible: the sentence or clause immediately before [1], [2], etc. must be a direct or near-direct transcription of the cited passage, not a loose paraphrase. Cite every factual claim inline using only the supplied passage numbers. For a multiple-choice question with options in the user message, first write "Answer: <letter or option>" and cite the source; then give one brief source-grounded reason. Never invent an option or select one without support in the passages. If the passages do not contain the answer, say so directly.${styleInstruction ? ` ${styleInstruction}` : ""}\n\nPassages:\n${passages}`;
 }
 
-function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[] {
+function selectedCitations(
+  answer: string,
+  chunks: RetrievedChunk[],
+): Citation[] {
   const indexes = new Set<number>();
   for (const match of answer.matchAll(/\[(\d+)]/g)) {
     const index = Number(match[1]) - 1;
-    if (Number.isInteger(index) && index >= 0 && index < chunks.length) indexes.add(index);
+    if (Number.isInteger(index) && index >= 0 && index < chunks.length)
+      indexes.add(index);
   }
 
   return [...indexes].map((index) => {
@@ -82,8 +103,13 @@ function selectedCitations(answer: string, chunks: RetrievedChunk[]): Citation[]
   });
 }
 
-function streamEvent(controller: ReadableStreamDefaultController<Uint8Array>, payload: unknown) {
-  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`));
+function streamEvent(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  payload: unknown,
+) {
+  controller.enqueue(
+    new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`),
+  );
 }
 
 function streamedAnswerResponse(
@@ -91,6 +117,7 @@ function streamedAnswerResponse(
   authenticated: ReturnType<typeof createClient>,
   sessionId: string,
   chunks: RetrievedChunk[],
+  usage: { used: number; limit: number },
 ) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -112,7 +139,9 @@ function streamedAnswerResponse(
             if (!line.startsWith("data:")) continue;
             const data = line.slice(5).trim();
             if (!data || data === "[DONE]") continue;
-            let event: { choices?: Array<{ delta?: { content?: string | null } }> };
+            let event: {
+              choices?: Array<{ delta?: { content?: string | null } }>;
+            };
             try {
               event = JSON.parse(data);
             } catch {
@@ -126,29 +155,48 @@ function streamedAnswerResponse(
         }
 
         answer = answer.trim();
-        if (!answer) throw new Error("DeepSeek returned an empty streamed answer.");
+        if (!answer)
+          throw new Error("DeepSeek returned an empty streamed answer.");
         const citations = selectedCitations(answer, chunks);
-        const { data: assistantMessage, error: assistantMessageError } = await authenticated
-          .from("messages")
-          .insert({ session_id: sessionId, role: "assistant", content: answer })
-          .select("id")
-          .single<{ id: string }>();
+        const { data: assistantMessage, error: assistantMessageError } =
+          await authenticated
+            .from("messages")
+            .insert({
+              session_id: sessionId,
+              role: "assistant",
+              content: answer,
+            })
+            .select("id")
+            .single<{ id: string }>();
         if (assistantMessageError || !assistantMessage) {
-          throw assistantMessageError ?? new Error("Assistant message was not saved.");
+          throw (
+            assistantMessageError ??
+            new Error("Assistant message was not saved.")
+          );
         }
         if (citations.length) {
-          const { error: citationError } = await authenticated.from("citations").insert(
-            citations.map((citation) => ({
-              message_id: assistantMessage.id,
-              chunk_id: citation.chunkId,
-              order_index: citation.orderIndex,
-            })),
-          );
+          const { error: citationError } = await authenticated
+            .from("citations")
+            .insert(
+              citations.map((citation) => ({
+                message_id: assistantMessage.id,
+                chunk_id: citation.chunkId,
+                order_index: citation.orderIndex,
+              })),
+            );
           if (citationError) throw citationError;
         }
-        streamEvent(controller, { type: "answer", content: answer, citations });
+        streamEvent(controller, {
+          type: "answer",
+          content: answer,
+          citations,
+          usage,
+        });
       } catch (error) {
-        console.error("streamed chat failed", error instanceof Error ? error.message : "Unknown error");
+        console.error(
+          "streamed chat failed",
+          error instanceof Error ? error.message : "Unknown error",
+        );
         streamEvent(controller, { type: "provider_error" });
       } finally {
         controller.close();
@@ -166,16 +214,27 @@ function streamedAnswerResponse(
   });
 }
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (request.method !== "POST") return jsonResponse({ error: "Method not allowed." }, 405);
+  if (request.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
+  if (request.method !== "POST")
+    return jsonResponse({ error: "Method not allowed." }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const authorization = request.headers.get("Authorization");
   const dailyLimit = configuredDailyLimit();
-  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey || !authorization || !dailyLimit) {
-    return jsonResponse({ error: "Function configuration is incomplete." }, 500);
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey ||
+    !serviceRoleKey ||
+    !authorization ||
+    !dailyLimit
+  ) {
+    return jsonResponse(
+      { error: "Function configuration is incomplete." },
+      500,
+    );
   }
 
   let payload: ChatRequest;
@@ -185,22 +244,42 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "A JSON request body is required." }, 400);
   }
 
-  const collectionId = typeof payload.collectionId === "string" ? payload.collectionId : "";
-  const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : "";
-  const documentId = typeof payload.documentId === "string" ? payload.documentId : null;
-  const question = typeof payload.question === "string" ? payload.question.trim() : "";
-  if (!isUuid(collectionId) || !isUuid(sessionId) || (documentId !== null && !isUuid(documentId))) {
-    return jsonResponse({ error: "A valid collection and session id are required." }, 400);
+  const collectionId =
+    typeof payload.collectionId === "string" ? payload.collectionId : "";
+  const sessionId =
+    typeof payload.sessionId === "string" ? payload.sessionId : "";
+  const documentId =
+    typeof payload.documentId === "string" ? payload.documentId : null;
+  const question =
+    typeof payload.question === "string" ? payload.question.trim() : "";
+  const answerStyle =
+    payload.answerStyle === "concise" || payload.answerStyle === "detailed"
+      ? payload.answerStyle
+      : "balanced";
+  if (
+    !isUuid(collectionId) ||
+    !isUuid(sessionId) ||
+    (documentId !== null && !isUuid(documentId))
+  ) {
+    return jsonResponse(
+      { error: "A valid collection and session id are required." },
+      400,
+    );
   }
   if (question.length < 3 || question.length > 1_200) {
-    return jsonResponse({ error: "Questions must be between 3 and 1,200 characters." }, 400);
+    return jsonResponse(
+      { error: "Questions must be between 3 and 1,200 characters." },
+      400,
+    );
   }
 
   const authenticated = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authorization } },
   });
-  const { data: authData, error: authError } = await authenticated.auth.getUser();
-  if (authError || !authData.user) return jsonResponse({ error: "Unauthorized." }, 401);
+  const { data: authData, error: authError } =
+    await authenticated.auth.getUser();
+  if (authError || !authData.user)
+    return jsonResponse({ error: "Unauthorized." }, 401);
 
   const { data: session, error: sessionError } = await authenticated
     .from("chat_sessions")
@@ -211,21 +290,33 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Chat session not found." }, 404);
   }
 
-  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
 
   // Future: add a global daily cap by also running
   // select sum(message_count) from usage_daily where usage_date = current_date
   // and short-circuiting the same way if it exceeds a app-wide threshold.
   // Not needed until this app has real, uncontrolled traffic.
-  const { data: messageCount, error: usageError } = await admin.rpc("increment_usage_daily", {
-    target_user_id: authData.user.id,
-  });
+  const { data: messageCount, error: usageError } = await admin.rpc(
+    "increment_usage_daily",
+    {
+      target_user_id: authData.user.id,
+    },
+  );
   if (usageError || typeof messageCount !== "number") {
-    console.error("usage increment failed", usageError?.message ?? "Unexpected usage count.");
+    console.error(
+      "usage increment failed",
+      usageError?.message ?? "Unexpected usage count.",
+    );
     return jsonResponse({ type: "provider_error" });
   }
   if (messageCount > dailyLimit) {
-    return jsonResponse({ type: "rate_limited", resetAt: nextUtcMidnight() });
+    return jsonResponse({
+      type: "rate_limited",
+      resetAt: nextUtcMidnight(),
+      usage: { used: messageCount, limit: dailyLimit },
+    });
   }
 
   const { error: userMessageError } = await authenticated
@@ -235,33 +326,62 @@ Deno.serve(async (request) => {
 
   try {
     const queryEmbedding = await embedQuery(question);
-    const { data, error: retrievalError } = await authenticated.rpc("match_collection_chunks", {
-      target_collection_id: collectionId,
-      query_embedding: queryEmbedding,
-      similarity_threshold: SIMILARITY_THRESHOLD,
-      result_limit: RETRIEVAL_LIMIT,
-      target_document_id: documentId,
-    });
+    const { data, error: retrievalError } = await authenticated.rpc(
+      "match_collection_chunks",
+      {
+        target_collection_id: collectionId,
+        query_embedding: queryEmbedding,
+        similarity_threshold: SIMILARITY_THRESHOLD,
+        result_limit: RETRIEVAL_LIMIT,
+        target_document_id: documentId,
+      },
+    );
     if (retrievalError) throw retrievalError;
 
     const chunks = (data ?? []) as RetrievedChunk[];
     if (!chunks.length) {
       const { error: notFoundSaveError } = await authenticated
         .from("messages")
-        .insert({ session_id: sessionId, role: "assistant", content: NOT_FOUND_MESSAGE });
+        .insert({
+          session_id: sessionId,
+          role: "assistant",
+          content: NOT_FOUND_MESSAGE,
+        });
       if (notFoundSaveError) throw notFoundSaveError;
-      return jsonResponse({ type: "answer", content: NOT_FOUND_MESSAGE, citations: [] });
+      return jsonResponse({
+        type: "answer",
+        content: NOT_FOUND_MESSAGE,
+        citations: [],
+        usage: { used: messageCount, limit: dailyLimit },
+      });
     }
 
     try {
-      const upstream = await openGroundedAnswerStream(buildPrompt(chunks), question);
-      return streamedAnswerResponse(upstream, authenticated, sessionId, chunks);
+      const upstream = await openGroundedAnswerStream(
+        buildPrompt(chunks, answerStyle),
+        question,
+      );
+      return streamedAnswerResponse(
+        upstream,
+        authenticated,
+        sessionId,
+        chunks,
+        { used: messageCount, limit: dailyLimit },
+      );
     } catch (providerError) {
-      console.error("DeepSeek provider error", providerError instanceof Error ? providerError.message : "Unknown provider error");
+      console.error(
+        "DeepSeek provider error",
+        providerError instanceof Error
+          ? providerError.message
+          : "Unknown provider error",
+      );
       return jsonResponse({ type: "provider_error" });
     }
   } catch (error) {
-    console.error("chat failed", error instanceof Error ? error.message : "Unknown error");
+    console.error(
+      "chat failed",
+      error instanceof Error ? error.message : "Unknown error",
+    );
     return jsonResponse({ type: "provider_error" });
   }
 });

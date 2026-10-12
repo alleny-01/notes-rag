@@ -54,7 +54,11 @@ export function CollectionSettingsPage({
       setRenameSaved(true);
       window.setTimeout(() => setRenameSaved(false), 2200);
     } catch (renameError) {
-      setActionError(renameError instanceof Error ? renameError.message : "We could not save this name.");
+      setActionError(
+        renameError instanceof Error
+          ? renameError.message
+          : "We could not save this name.",
+      );
     } finally {
       setIsRenaming(false);
     }
@@ -97,7 +101,9 @@ export function CollectionSettingsPage({
               />
               <button
                 type="submit"
-                disabled={isRenaming || !name.trim() || name.trim() === collection.name}
+                disabled={
+                  isRenaming || !name.trim() || name.trim() === collection.name
+                }
                 className="h-11 rounded-md bg-[var(--purple)] px-4 text-[12px] font-medium text-white transition duration-200 ease-out hover:-translate-y-px hover:bg-[var(--purple-dark)] active:translate-y-0 disabled:cursor-not-allowed disabled:bg-[#b7a4c5]"
               >
                 Save name
@@ -128,7 +134,8 @@ export function CollectionSettingsPage({
               }
               className="inline-flex h-10 items-center gap-2 rounded-md bg-white px-3 text-[12px] shadow-[0_4px_12px_rgba(66,47,39,0.07)] font-medium text-[var(--body)] transition duration-200 ease-out hover:-translate-y-px hover:border-[var(--purple)] hover:text-[var(--purple)] active:translate-y-0"
             >
-              <Plus size={15} strokeWidth={1}/> <span className="text-sm">Add documents</span>
+              <Plus size={15} strokeWidth={1} />{" "}
+              <span className="text-sm">Add documents</span>
             </button>
             {collection.documents.length ? (
               <ul className="mt-4 space-y-2">
@@ -157,14 +164,18 @@ export function CollectionSettingsPage({
                       className="grid h-8 w-8 place-items-center rounded-md text-[var(--muted)] transition duration-200 ease-out hover:scale-105 hover:bg-[#fff2f2] hover:text-[#a0464b]"
                       aria-label={`Remove ${document.filename}`}
                     >
-                      <Trash2 size={15} strokeWidth={1}/>
+                      <Trash2 size={15} strokeWidth={1} />
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="mt-4 bg-[var(--paper)] p-6 text-center shadow-[0_10px_24px_rgba(66,47,39,0.04)]">
-                <FileText size={20} strokeWidth={1} className="mx-auto text-[var(--purple)]" />
+                <FileText
+                  size={20}
+                  strokeWidth={1}
+                  className="mx-auto text-[var(--purple)]"
+                />
                 <h3 className="mt-3 font-[var(--serif)] text-[15px] leading-none tracking-[-0.045em]">
                   No documents in this collection.
                 </h3>
@@ -199,13 +210,18 @@ export function CollectionSettingsPage({
               onClick={() => setIsDeleteConfirmationOpen(true)}
               className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-white shadow-[0_4px_12px_rgba(143,61,66,0.09)] px-3 text-[12px] font-medium text-[#963e43] transition hover:bg-[#fff2f2] sm:mt-0"
             >
-              <Trash2 size={14} strokeWidth={1}/> Delete
+              <Trash2 size={14} strokeWidth={1} /> Delete
             </button>
           </div>
         </section>
       </div>
       {actionError && (
-        <p className="mb-5 bg-[#fff7f7] px-3 py-2 text-[12px] text-[#8f3d42]" role="alert">{actionError}</p>
+        <p
+          className="mb-5 bg-[#fff7f7] px-3 py-2 text-[12px] text-[#8f3d42]"
+          role="alert"
+        >
+          {actionError}
+        </p>
       )}
       {selectedDocument && (
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
@@ -248,7 +264,11 @@ export function CollectionSettingsPage({
                     await onRemoveDocument(collection.id, selectedDocument.id);
                     setDocumentToRemove(null);
                   } catch (removeError) {
-                    setActionError(removeError instanceof Error ? removeError.message : "We could not remove this document.");
+                    setActionError(
+                      removeError instanceof Error
+                        ? removeError.message
+                        : "We could not remove this document.",
+                    );
                   } finally {
                     setIsRemovingDocument(false);
                   }
@@ -256,7 +276,13 @@ export function CollectionSettingsPage({
                 disabled={isRemovingDocument}
                 className="inline-flex h-9 items-center gap-2 rounded-md bg-[#963e43] px-3 text-[12px] font-medium text-white hover:bg-[#783034] disabled:cursor-wait disabled:opacity-70"
               >
-                {isRemovingDocument ? <><Spinner className="size-3.5 animate-spin" /> Removing…</> : "Remove document"}
+                {isRemovingDocument ? (
+                  <>
+                    <Spinner className="size-3.5 animate-spin" /> Removing…
+                  </>
+                ) : (
+                  "Remove document"
+                )}
               </button>
             </div>
           </section>
@@ -276,7 +302,11 @@ export function CollectionSettingsPage({
             aria-labelledby="delete-collection-title"
             className="relative w-full max-w-sm bg-[var(--cream)] p-6 shadow-[0_24px_70px_rgba(30,26,32,0.24)]"
           >
-            <AlertTriangle size={22} className="text-[#963e43]" strokeWidth={1}/>
+            <AlertTriangle
+              size={22}
+              className="text-[#963e43]"
+              strokeWidth={1}
+            />
             <h2
               id="delete-collection-title"
               className="mt-4 font-[var(--serif)] text-[20px] leading-none tracking-[-0.055em]"
@@ -303,14 +333,26 @@ export function CollectionSettingsPage({
                   try {
                     await onDelete(collection.id);
                   } catch (deleteError) {
-                    setActionError(deleteError instanceof Error ? deleteError.message : "We could not delete this collection.");
+                    setActionError(
+                      deleteError instanceof Error
+                        ? deleteError.message
+                        : "We could not delete this collection.",
+                    );
                     setIsDeleting(false);
                   }
                 }}
                 disabled={isDeleting}
                 className="inline-flex h-9 items-center gap-2 rounded-md bg-[#963e43] px-3 text-[11px] font-medium text-white hover:bg-[#783034] disabled:cursor-wait disabled:opacity-70"
               >
-                {isDeleting ? <><Spinner className="size-3.5 animate-spin" /> Deleting…</> : <>Delete <ArrowRight size={14} strokeWidth={1} /></>}
+                {isDeleting ? (
+                  <>
+                    <Spinner className="size-3.5 animate-spin" /> Deleting…
+                  </>
+                ) : (
+                  <>
+                    Delete <ArrowRight size={14} strokeWidth={1} />
+                  </>
+                )}
               </button>
             </div>
           </section>

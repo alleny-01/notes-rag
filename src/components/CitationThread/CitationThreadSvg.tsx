@@ -28,7 +28,13 @@ function isVisibleInside(bounds: DOMRect, rect: DOMRect) {
   );
 }
 
-export function CitationThreadSvg({ workspaceRef, fromElement, toElement, label, animationKey }: CitationThreadSvgProps) {
+export function CitationThreadSvg({
+  workspaceRef,
+  fromElement,
+  toElement,
+  label,
+  animationKey,
+}: CitationThreadSvgProps) {
   const [thread, setThread] = useState<ThreadPath | null>(null);
 
   useEffect(() => {
@@ -124,8 +130,20 @@ export function CitationThreadSvg({ workspaceRef, fromElement, toElement, label,
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.22, delay: 0.16 }}
       />
-      <circle cx={thread.endX} cy={thread.endY} r="4" fill="var(--cream)" stroke="var(--purple)" strokeWidth="1.3" />
-      <text x={thread.startX} y={thread.startY + 3} textAnchor="middle" className="fill-white text-[8px] font-semibold">
+      <circle
+        cx={thread.endX}
+        cy={thread.endY}
+        r="4"
+        fill="var(--cream)"
+        stroke="var(--purple)"
+        strokeWidth="1.3"
+      />
+      <text
+        x={thread.startX}
+        y={thread.startY + 3}
+        textAnchor="middle"
+        className="fill-white text-[8px] font-semibold"
+      >
         {label}
       </text>
     </svg>

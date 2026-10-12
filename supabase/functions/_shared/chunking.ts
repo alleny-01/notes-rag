@@ -14,7 +14,10 @@ function words(value: string) {
 }
 
 function unitsForPage(text: string) {
-  const paragraphs = text.split(/\n\s*\n+/).map((item) => item.trim()).filter(Boolean);
+  const paragraphs = text
+    .split(/\n\s*\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
   return (paragraphs.length ? paragraphs : [text])
     .flatMap((paragraph) => paragraph.split(/(?<=[.!?])\s+(?=[A-Z0-9])/))
     .map((unit) => unit.trim())
@@ -37,7 +40,11 @@ export function chunkPages(pages: SourcePage[]): Chunk[] {
       const end = Math.min(start + TARGET_TOKENS, pageWords.length);
       const content = pageWords.slice(start, end).join(" ").trim();
       if (content) {
-        output.push({ content, pageNumber: page.pageNumber, chunkIndex: output.length });
+        output.push({
+          content,
+          pageNumber: page.pageNumber,
+          chunkIndex: output.length,
+        });
       }
       if (end === pageWords.length) break;
       start = Math.max(start + 1, end - OVERLAP_TOKENS);

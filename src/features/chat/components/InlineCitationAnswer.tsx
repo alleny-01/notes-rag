@@ -13,7 +13,6 @@ export function InlineCitationAnswer({
   citations = [],
   onOpenCitation,
 }: InlineCitationAnswerProps) {
-
   const parts: ReactNode[] = [];
   let cursor = 0;
 
@@ -21,7 +20,12 @@ export function InlineCitationAnswer({
     const position = match.index ?? 0;
     if (position > cursor) parts.push(content.slice(cursor, position));
     const passageNumber = Number(match[1]);
-    const citation = citationTargetForMarker(content, citations, position, passageNumber);
+    const citation = citationTargetForMarker(
+      content,
+      citations,
+      position,
+      passageNumber,
+    );
 
     parts.push(
       citation ? (

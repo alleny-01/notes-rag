@@ -5,7 +5,7 @@ NotesRAG is a source-grounded study workspace for your course notes. Upload a te
 ## What it does
 
 - Organises documents into private study collections.
-- Extracts page-aware text in the browser for PDFs, then chunks and embeds it with Voyage AI.
+- Prepares PDFs on a server-side Node runtime, so browser PDF compatibility is not a dependency for uploads or source viewing.
 - Retrieves only passages from the current collection before generating a DeepSeek Flash answer.
 - Stores the actual retrieved chunk IDs as citations instead of trusting free-form model citation claims.
 - Opens the cited PDF/TXT/Markdown source and highlights the claim used in the answer. Desktop workspaces animate a live connector from citation to source.
@@ -14,11 +14,11 @@ NotesRAG is a source-grounded study workspace for your course notes. Upload a te
 
 ## Supported uploads
 
-| Format | Support | Notes |
-| --- | --- | --- |
-| `.pdf` | Yes | Must have selectable text. Scanned/image-only PDFs are intentionally rejected. |
-| `.txt` | Yes | Plain text. |
-| `.md` | Yes | Markdown is stored and read as text. |
+| Format | Support | Notes                                                                          |
+| ------ | ------- | ------------------------------------------------------------------------------ |
+| `.pdf` | Yes     | Must have selectable text. Scanned/image-only PDFs are intentionally rejected. |
+| `.txt` | Yes     | Plain text.                                                                    |
+| `.md`  | Yes     | Markdown is stored and read as text.                                           |
 
 Uploads are limited to 20 MB per file in this MVP.
 
@@ -26,8 +26,9 @@ Uploads are limited to 20 MB per file in this MVP.
 
 ```text
 Browser
-  ├─ extracts text/page data from PDFs with pdfjs-dist
-  ├─ stores the raw source in Supabase Storage
+  ├─ stores raw PDF/TXT/Markdown sources in Supabase Storage
+  ├─ calls Vercel's /api/process-pdf for PDFs (JWT-authenticated)
+  │    └─ receives only JPEG page images + normalized word boxes for PDF viewing
   └─ calls Supabase Edge Functions
        ├─ ingest-document → chunk → Voyage embeddings → pgvector
        ├─ retrieve-chunks → similarity search for manual validation
@@ -35,8 +36,8 @@ Browser
 
 Supabase
   ├─ Google Auth + RLS-protected Postgres
-  ├─ Storage bucket: notes-documents
-  └─ pgvector chunks, chat sessions, messages, citation join rows
+  ├─ Storage buckets: notes-documents (raw sources), notes-pages (server-rendered PDF JPEGs)
+  └─ pgvector chunks, document_pages, chat sessions, messages, citation join rows
 ```
 
 ## Local setup
@@ -70,9 +71,19 @@ Supabase
    npx supabase functions deploy ingest-document --project-ref YOUR_PROJECT_REF
    npx supabase functions deploy retrieve-chunks --project-ref YOUR_PROJECT_REF
    npx supabase functions deploy chat --project-ref YOUR_PROJECT_REF
+   npx supabase functions deploy get-usage --project-ref YOUR_PROJECT_REF
+   npx supabase functions deploy delete-account --project-ref YOUR_PROJECT_REF
    ```
 
-6. Start the app:
+6. For local PDF processing, copy the server-only Vercel values shown in `.env.example` into your local environment, then run the Vercel development server:
+
+   ```bash
+   npx vercel dev
+   ```
+
+   `SUPABASE_SERVICE_ROLE_KEY` must never use a `VITE_` prefix and must never be committed.
+
+7. To run the browser-only interface without PDF processing, use:
 
    ```bash
    npm run dev
@@ -82,7 +93,7 @@ Supabase
 
 ```bash
 npm test
-npx tsc --noEmit
+npm run typecheck
 npm run build
 ```
 
@@ -101,7 +112,9 @@ Before release, complete this manual flow on both desktop and mobile:
 
 - **Retrieval is truth.** The generator receives only retrieved passages. If retrieval does not meet the similarity threshold, NotesRAG returns a deliberate “not found in your notes” state instead of asking the model to guess.
 - **Citation integrity is server-owned.** `citations` records the retrieved chunk IDs and passage order. The UI maps model `[n]` markers onto those stored chunks; it does not infer citations from arbitrary prose.
-- **No OCR in the MVP.** Client extraction avoids a server PDF runtime, but image-only PDFs do not provide reliable text and are excluded until OCR can be supported honestly.
+- **No OCR in the MVP.** Image-only PDFs are rendered server-side but still have no reliable selectable text to embed, so they are rejected until OCR can be supported honestly.
+- **Server-rendered PDFs.** PDF.js and the native canvas renderer run only in Vercel's Node function. The browser receives JPEG pages and normalized word boxes, which avoids WebKit PDF.js crashes while retaining claim-level citation highlights.
+- **PDF duplicate trade-off.** PDFs now hash the raw file bytes rather than normalized extracted text. A re-export of identical text can therefore be treated as a new PDF; TXT and Markdown retain normalized-text deduplication.
 - **Daily cap before cost.** `usage_daily` increments before retrieval and DeepSeek, preventing one account from driving uncapped model spend. The documented extension point is a future application-wide cap.
 - **Streaming with persistence.** Tokens stream to the UI for responsiveness. Once the full answer is complete, the answer and its citation join rows are stored together for reliable reloads.
 
@@ -110,6 +123,7 @@ Before release, complete this manual flow on both desktop and mobile:
 - Run the verification commands above.
 - Confirm Supabase migrations are applied in order.
 - Confirm `notes-documents` Storage policies and RLS policies are enabled.
+- Add the server-only `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` values to Vercel for Production and Preview. Optionally set `MAX_PDF_PAGES` (defaults to 300), and select Node 22.x or newer in Vercel.
 - Set `VOYAGE_API_KEY`, `DEEPSEEK_API_KEY`, and `DAILY_MESSAGE_LIMIT` only as Supabase Edge Function secrets.
-- Deploy all three Edge Functions after their code changes.
+- Deploy `ingest-document`, `retrieve-chunks`, `chat`, `get-usage`, and `delete-account` after their code changes.
 - Configure Google OAuth redirect URLs in both Google Cloud and Supabase Auth before enabling Google sign-in in production.

@@ -6,7 +6,8 @@ const DEEPSEEK_MODEL = "deepseek-flash";
 function retryAfterMilliseconds(value: string | null) {
   if (!value) return 2_000;
   const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1_000);
+  if (Number.isFinite(seconds) && seconds >= 0)
+    return Math.round(seconds * 1_000);
   const date = Date.parse(value);
   return Number.isNaN(date) ? 2_000 : Math.max(0, date - Date.now());
 }
@@ -16,9 +17,15 @@ function wait(milliseconds: number) {
 }
 
 /** Opens one DeepSeek SSE stream. A provider 429 is retried exactly once. */
-export async function openGroundedAnswerStream(system: string, question: string) {
+export async function openGroundedAnswerStream(
+  system: string,
+  question: string,
+) {
   const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
-  if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not configured for this Edge Function.");
+  if (!apiKey)
+    throw new Error(
+      "DEEPSEEK_API_KEY is not configured for this Edge Function.",
+    );
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await fetch(DEEPSEEK_CHAT_URL, {
@@ -45,8 +52,12 @@ export async function openGroundedAnswerStream(system: string, question: string)
       await wait(retryAfterMilliseconds(response.headers.get("Retry-After")));
       continue;
     }
-    if (!response.ok) throw new Error(`DeepSeek request failed with status ${response.status}.`);
-    if (!response.body) throw new Error("DeepSeek returned an empty response stream.");
+    if (!response.ok)
+      throw new Error(
+        `DeepSeek request failed with status ${response.status}.`,
+      );
+    if (!response.body)
+      throw new Error("DeepSeek returned an empty response stream.");
     return response;
   }
 

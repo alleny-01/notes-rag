@@ -3,31 +3,39 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit",
+    "build": "tsc -b && tsc --project tsconfig.api.json && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@napi-rs/canvas": "^0.1.78",
     "@supabase/supabase-js": "^2.116.0",
     "@tanstack/react-query": "^5.102.8",
-    "core-js": "^3.45.1",
     "framer-motion": "^13.4.1",
     "gsap": "^3.13.0",
     "lucide-react": "^0.468.0",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "6.3.289",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-pdf": "11.0.0"
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^26.6.3",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
+    "@vercel/node": "^5.3.24",
     "@vitejs/plugin-react": "^5.0.2",
+    "pdf-lib": "^1.17.1",
+    "prettier": "^3.9.10",
     "tailwindcss": "^4.1.13",
     "typescript": "~5.9.3",
     "vite": "^7.1.7",
