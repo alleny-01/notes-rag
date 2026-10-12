@@ -15,7 +15,9 @@ export function OnboardingPage() {
   const root = useRef<HTMLElement>(null);
   const [activeCitationId, setActiveCitationId] = useState(1);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const activeSource = citations.find((citation) => citation.id === activeCitationId) ?? citations[0];
+  const activeSource =
+    citations.find((citation) => citation.id === activeCitationId) ??
+    citations[0];
   const openAuth = () => setIsAuthOpen(true);
 
   useOnboardingMotion(root);
@@ -26,7 +28,11 @@ export function OnboardingPage() {
       <HeroSection onOpenCitation={setActiveCitationId} onOpenAuth={openAuth} />
       <ValuesMarquee />
       <FeatureSection />
-      <CitationProof activeCitationId={activeCitationId} activeSource={activeSource} onSelectCitation={setActiveCitationId} />
+      <CitationProof
+        activeCitationId={activeCitationId}
+        activeSource={activeSource}
+        onSelectCitation={setActiveCitationId}
+      />
       <ProcessSection />
       <FinalCta onOpenAuth={openAuth} />
       <OnboardingFooter onOpenAuth={openAuth} />

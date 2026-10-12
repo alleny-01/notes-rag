@@ -14,7 +14,11 @@ import type { Collection } from "../types/domain";
 
 type Props = {
   collection: Collection;
-  onAddDocument: (collectionId: string, file: File) => Promise<void>;
+  onAddDocument: (
+    collectionId: string,
+    file: File,
+    onProgress?: (label: string) => void,
+  ) => Promise<void>;
   onRemoveDocument: (documentId: string) => Promise<void>;
 };
 const maxSize = 20 * 1024 * 1024;
@@ -37,36 +41,57 @@ function documentState(document: Collection["documents"][number]) {
   return "Queued for indexing";
 }
 
-export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Props) {
+export function UploadPage({
+  collection,
+  onAddDocument,
+  onRemoveDocument,
+}: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [removingDocumentId, setRemovingDocumentId] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
+  const [removingDocumentId, setRemovingDocumentId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState("");
-  const add = (file?: File) => {
-    if (!file) return;
-    setError("");
-    if (
-      (!supported.includes(file.type) && !/\.(pdf|txt|md)$/i.test(file.name)) ||
-      file.size > maxSize
-    ) {
-      setError(
-        file.size > maxSize
-          ? "This file is larger than 20 MB. Split it into smaller files and try again."
-          : "Choose a text-based PDF, TXT, or Markdown file.",
-      );
+  const addMany = async (files: File[]) => {
+    const eligible = files.filter(
+      (file) =>
+        (supported.includes(file.type) || /\.(pdf|txt|md)$/i.test(file.name)) &&
+        file.size <= maxSize,
+    );
+    if (!eligible.length) {
+      setError("Choose text-based PDF, TXT, or Markdown files under 20 MB.");
       return;
     }
+    setError("");
     setChecking(true);
-    void onAddDocument(collection.id, file)
-      .catch((uploadError: unknown) =>
-        setError(
-          uploadError instanceof Error
-            ? uploadError.message
-            : "We could not upload this document.",
-        ),
-      )
-      .finally(() => setChecking(false));
+    const queue = [...eligible];
+    let completed = 0;
+    let failures = 0;
+    const worker = async () => {
+      while (queue.length) {
+        const file = queue.shift();
+        if (!file) return;
+        try {
+          setProgress(
+            `Adding ${completed + 1}/${eligible.length}: ${file.name}`,
+          );
+          await onAddDocument(collection.id, file, setProgress);
+        } catch {
+          failures += 1;
+        } finally {
+          completed += 1;
+        }
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    setChecking(false);
+    setProgress("");
+    if (failures)
+      setError(
+        `${failures} ${failures === 1 ? "file could" : "files could"} not be uploaded. The other files continued.`,
+      );
   };
   const remove = async (documentId: string) => {
     setError("");
@@ -74,7 +99,11 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
     try {
       await onRemoveDocument(documentId);
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : "We could not remove this document.");
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : "We could not remove this document.",
+      );
     } finally {
       setRemovingDocumentId(null);
     }
@@ -96,10 +125,11 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
           <input
             ref={input}
             type="file"
+            multiple
             accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
             className="hidden"
             onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              add(event.target.files?.[0])
+              void addMany(Array.from(event.target.files ?? []))
             }
           />
           <div
@@ -111,7 +141,7 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
             onDrop={(event: DragEvent<HTMLDivElement>) => {
               event.preventDefault();
               setDragging(false);
-              add(event.dataTransfer.files[0]);
+              void addMany(Array.from(event.dataTransfer.files));
             }}
             className={`grid min-h-72 place-items-center border border-dashed p-7 text-center shadow-[0_0_0_rgba(66,47,39,0)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(66,47,39,0.08)] ${dragging ? "border-[var(--purple)] bg-[rgba(95,61,130,0.08)]" : "border-[var(--line)] bg-[var(--cream)] hover:border-[var(--purple)]"}`}
           >
@@ -134,13 +164,15 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
               >
                 {checking ? (
                   <>
-                    <Spinner className="size-[15px] animate-spin" /> <span className="text-sm">Checking
-                    document…</span>
+                    <Spinner className="size-[15px] animate-spin" />{" "}
+                    <span className="text-sm">
+                      {progress || "Checking document…"}
+                    </span>
                   </>
                 ) : (
                   <>
                     <FileText size={15} strokeWidth={1} />{" "}
-                    <span className="text-sm">Choose file</span>
+                    <span className="text-sm">Choose files</span>
                   </>
                 )}
               </button>
@@ -181,9 +213,17 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {document.status === "ready" ? (
-                      <CheckCircle2 size={17} className="text-[#63945a]" strokeWidth={1} />
+                      <CheckCircle2
+                        size={17}
+                        className="text-[#63945a]"
+                        strokeWidth={1}
+                      />
                     ) : document.status === "failed" ? (
-                      <CircleAlert size={17} className="text-[#a45353]" strokeWidth={1} />
+                      <CircleAlert
+                        size={17}
+                        className="text-[#a45353]"
+                        strokeWidth={1}
+                      />
                     ) : (
                       <Spinner className="size-4 animate-spin text-[var(--purple)]" />
                     )}
@@ -194,8 +234,16 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
                       className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[10px] text-[var(--muted)] transition hover:bg-[#fff1f1] hover:text-[var(--signal)] disabled:cursor-wait disabled:opacity-50"
                       aria-label={`Remove ${document.filename}`}
                     >
-                      {removingDocumentId === document.id ? <Spinner className="size-3.5 animate-spin" /> : <Trash2 size={14} strokeWidth={1} />}
-                      <span className="text-sm">{removingDocumentId === document.id ? "Removing…" : "Remove"}</span>
+                      {removingDocumentId === document.id ? (
+                        <Spinner className="size-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 size={14} strokeWidth={1} />
+                      )}
+                      <span className="text-sm">
+                        {removingDocumentId === document.id
+                          ? "Removing…"
+                          : "Remove"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -224,40 +272,40 @@ export function UploadPage({ collection, onAddDocument, onRemoveDocument }: Prop
       </section>
 
       <section className="bg-[var(--paper)] mt-5 px-5 py-5 shadow-[0_12px_28px_rgba(66,47,39,0.05)]">
-          <p className="text-[11px] font-semibold tracking-[0.11em] text-[var(--purple)]">
-            File support
-          </p>
-          <ul className="mt-4 grid gap-3 text-[12px] leading-5 text-[var(--body)]">
-            <li>
-              <strong className="font-medium text-[var(--ink)]">
-                Text-layer PDFs
-              </strong>
-              <br />
-              <p className="text-[11px] tracking-wide">
-                Lecture handouts, readings, exported articles.
-              </p>
-            </li>
-            <li>
-              <strong className="font-medium text-[var(--ink)]">
-                Plain-text notes
-              </strong>
-              <br />
-              <p className="text-[11px] tracking-wide">
-                {" "}
-                and Markdown notes work too.
-              </p>
-            </li>
-            <li>
-              <strong className="font-medium text-[var(--ink)]">
-                Not yet supported
-              </strong>
-              <br />
-              <p className="text-[11px] tracking-wide">
-                Scans, image-only PDFs, and handwriting need OCR first.
-              </p>
-            </li>
-          </ul>
-        </section>
+        <p className="text-[11px] font-semibold tracking-[0.11em] text-[var(--purple)]">
+          File support
+        </p>
+        <ul className="mt-4 grid gap-3 text-[12px] leading-5 text-[var(--body)]">
+          <li>
+            <strong className="font-medium text-[var(--ink)]">
+              Text-layer PDFs
+            </strong>
+            <br />
+            <p className="text-[11px] tracking-wide">
+              Lecture handouts, readings, exported articles.
+            </p>
+          </li>
+          <li>
+            <strong className="font-medium text-[var(--ink)]">
+              Plain-text notes
+            </strong>
+            <br />
+            <p className="text-[11px] tracking-wide">
+              {" "}
+              and Markdown notes work too.
+            </p>
+          </li>
+          <li>
+            <strong className="font-medium text-[var(--ink)]">
+              Not yet supported
+            </strong>
+            <br />
+            <p className="text-[11px] tracking-wide">
+              Scans, image-only PDFs, and handwriting need OCR first.
+            </p>
+          </li>
+        </ul>
+      </section>
     </main>
   );
 }

@@ -9,7 +9,10 @@ function cleanClaim(value: string) {
 }
 
 function claimBeforeCitation(content: string, position: number) {
-  const before = content.slice(0, position).replace(/\[\d+\]\s*$/g, "").trim();
+  const before = content
+    .slice(0, position)
+    .replace(/\[\d+\]\s*$/g, "")
+    .trim();
   const boundary = Math.max(
     before.lastIndexOf("."),
     before.lastIndexOf("?"),
@@ -30,26 +33,44 @@ export function citationTargetForMarker(
   position: number,
   passageNumber: number,
 ) {
-  const citation = citations.find((candidate) => candidate.orderIndex + 1 === passageNumber);
+  const citation = citations.find(
+    (candidate) => candidate.orderIndex + 1 === passageNumber,
+  );
   const claim = claimBeforeCitation(content, position);
   return citation && claim.length >= 8
     ? { ...citation, highlightText: claim }
     : undefined;
 }
 
-function firstCitationTargetForPassage(content: string, citations: ChatCitation[], passageNumber: number) {
+function firstCitationTargetForPassage(
+  content: string,
+  citations: ChatCitation[],
+  passageNumber: number,
+) {
   for (const marker of content.matchAll(/\[(\d+)\]/g)) {
     if (Number(marker[1]) !== passageNumber) continue;
-    return citationTargetForMarker(content, citations, marker.index ?? 0, passageNumber);
+    return citationTargetForMarker(
+      content,
+      citations,
+      marker.index ?? 0,
+      passageNumber,
+    );
   }
   return undefined;
 }
 
-export function citationTargetsForAnswer(content: string, citations: ChatCitation[]) {
+export function citationTargetsForAnswer(
+  content: string,
+  citations: ChatCitation[],
+) {
   return new Map(
     citations.map((citation) => [
       citation.orderIndex + 1,
-      firstCitationTargetForPassage(content, citations, citation.orderIndex + 1) ?? citation,
+      firstCitationTargetForPassage(
+        content,
+        citations,
+        citation.orderIndex + 1,
+      ) ?? citation,
     ]),
   );
 }

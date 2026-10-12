@@ -36,6 +36,6 @@ export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  kind?: "not-found" | "rate-limited" | "provider-error";
+  kind?: "not-found" | "rate-limited" | "provider-error" | "stopped";
   citations?: ChatCitation[];
 };

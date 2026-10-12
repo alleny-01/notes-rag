@@ -14,6 +14,7 @@ import {
   ScanSearch,
   Search,
   Square,
+  Sparkles,
   SlidersHorizontal,
   Trash2,
   X,
@@ -27,6 +28,7 @@ type LibraryPageProps = {
   onDeleteCollections: (collectionIds: string[]) => Promise<void>;
   onOpenCollection: (collectionId: string) => void;
   onOpenCreateCollection: () => void;
+  onTrySample?: () => void;
 };
 
 type CollectionOrder =
@@ -108,8 +110,10 @@ function LibraryHeader({ count }: { count: number }) {
 
 function FirstCollectionCanvas({
   onOpenCreateCollection,
+  onTrySample,
 }: {
   onOpenCreateCollection: () => void;
+  onTrySample?: () => void;
 }) {
   return (
     <section className="mt-9 grid gap-2 overflow-hidden bg-[var(--canvas)] lg:grid-cols-[minmax(0,1.18fr)_minmax(280px,0.82fr)]">
@@ -123,7 +127,7 @@ function FirstCollectionCanvas({
           <p className="mt-7 text-[10px] font-semibold tracking-[0.14em] text-[var(--purple)]">
             Begin with one context
           </p>
-          <h2 className="mt-3 font-[var(--serif)] text-[15px] font-light leading-[1.15] tracking-[-0.04em]">
+          <h2 className="mt-3 font-[var(--serif)] text-[15px] font-light leading-[1.15] tracking-wide">
             Create a shelf for the notes that belong together.
           </h2>
           <p className="mt-4 max-w-[34rem] text-[13px] leading-6 text-[var(--body)]">
@@ -131,52 +135,41 @@ function FirstCollectionCanvas({
             material together and the questions you ask later will have a
             clearer source of truth.
           </p>
-          <button
-            type="button"
-            onClick={onOpenCreateCollection}
-            className="mt-7 inline-flex h-10 items-center gap-2 rounded-md bg-[var(--purple)] px-3.5 text-[12px] font-medium text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--purple-dark)] active:translate-y-0"
-          >
-            Create a collection <ArrowUpRight size={15} />
-          </button>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={onOpenCreateCollection}
+              className="mt-7 inline-flex h-10 items-center gap-2 rounded-md bg-[var(--purple)] px-3.5 text-[12px] font-medium text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--purple-dark)] active:translate-y-0"
+            >
+              Create a collection <ArrowUpRight size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={onTrySample}
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-white px-3.5 text-[12px] text-[var(--purple)] shadow-[inset_0_0_0_1px_var(--purple)] transition hover:-translate-y-0.5 hover:bg-[var(--lilac)]"
+            >
+              <Sparkles size={15} strokeWidth={1} />
+              Try a sample collection
+            </button>
+          </div>
         </div>
       </div>
       <aside className="bg-[var(--paper)] p-6 sm:p-9">
         <p className="text-[10px] font-semibold tracking-[0.14em] text-[var(--muted)]">
-          A calmer study loop
+          A grounded answer
         </p>
-        <ol className="mt-7 space-y-6">
-          {[
-            [
-              "01",
-              "Add the material",
-              "Text PDFs and plain notes, all under one subject.",
-            ],
-            [
-              "02",
-              "Ask with context",
-              "Keep each conversation in the place its sources belong.",
-            ],
-            [
-              "03",
-              "Trace each answer",
-              "Follow a useful response back to the passage that supports it.",
-            ],
-          ].map(([number, title, copy]) => (
-            <li key={number} className="grid grid-cols-[25px_1fr] gap-3">
-              <span className="font-mono text-[10px] text-[var(--purple)]">
-                {number}
-              </span>
-              <div>
-                <h3 className="text-[13px] font-medium text-[var(--ink)]">
-                  {title}
-                </h3>
-                <p className="mt-1 text-[11px] leading-5 text-[var(--body)]">
-                  {copy}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-7 space-y-5 opacity-75">
+          <div className="ml-auto max-w-[86%] rounded-md bg-[var(--purple)] px-3 py-2 text-[11px] text-white">
+            What are the main ideas?
+          </div>
+          <div className="max-w-[92%] bg-white p-3 text-[11px] leading-5 text-[var(--body)] shadow-[inset_3px_0_0_var(--purple)]">
+            Every answer is built from a passage you can open.
+            <span className="ml-1 rounded bg-[var(--lilac)] px-1 text-[10px] text-[var(--purple)]">
+              [1]
+            </span>
+          </div>
+          <div className="h-14 bg-[rgba(95,61,130,0.13)] shadow-[inset_3px_0_0_var(--purple)]" />
+        </div>
       </aside>
     </section>
   );
@@ -419,7 +412,9 @@ function CollectionShelf({
                 ) : (
                   <Square size={14} strokeWidth={1} />
                 )}
-                <span className = "text-sm">{allVisibleSelected ? "Clear shown" : "Select shown"}</span>
+                <span className="text-sm">
+                  {allVisibleSelected ? "Clear shown" : "Select shown"}
+                </span>
               </button>
               <span className="text-sm font-medium text-[var(--body)]">
                 {selectedCount} selected
@@ -457,7 +452,8 @@ function CollectionShelf({
                 onClick={onStartSelection}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium text-[var(--body)]  hover:text-[var(--purple)]"
               >
-                <Square size={14} strokeWidth={1} /> <span className = "text-sm">Select</span>
+                <Square size={14} strokeWidth={1} />{" "}
+                <span className="text-sm">Select</span>
               </button>
               <button
                 type="button"
@@ -565,6 +561,7 @@ export function LibraryPage({
   onDeleteCollections,
   onOpenCollection,
   onOpenCreateCollection,
+  onTrySample,
 }: LibraryPageProps) {
   const [query, setQuery] = useState("");
   const [order, setOrder] = useState<CollectionOrder>("default");
@@ -695,6 +692,7 @@ export function LibraryPage({
       ) : (
         <FirstCollectionCanvas
           onOpenCreateCollection={onOpenCreateCollection}
+          onTrySample={onTrySample}
         />
       )}
       <section className="mt-10 flex flex-col gap-3 pt-5 text-[11px] text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">

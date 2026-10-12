@@ -28,13 +28,17 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (!canvas || reduceMotion) return;
 
     const context = canvas.getContext("2d");
     if (!context) return;
 
-    const hoverEnabled = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const hoverEnabled = window.matchMedia(
+      "(hover: hover) and (pointer: fine)",
+    ).matches;
     const pointer = { x: -1000, y: -1000, active: false };
     let particles: Particle[] = [];
     let width = 0;
@@ -52,8 +56,9 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
 
       const count = width < 700 ? Math.min(94, particleCount) : particleCount;
       particles = Array.from({ length: count }, (_, index) => {
-        const baseX = ((index * 137.5) % 991) / 991 * width;
-        const baseY = ((index * 83.7 + 97) % 983) / 983 * Math.max(height * 0.82, 1);
+        const baseX = (((index * 137.5) % 991) / 991) * width;
+        const baseY =
+          (((index * 83.7 + 97) % 983) / 983) * Math.max(height * 0.82, 1);
         return {
           baseX,
           baseY,
@@ -73,7 +78,11 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
       const bounds = canvas.getBoundingClientRect();
       pointer.x = event.clientX - bounds.left;
       pointer.y = event.clientY - bounds.top;
-      pointer.active = pointer.x >= 0 && pointer.y >= 0 && pointer.x <= width && pointer.y <= height;
+      pointer.active =
+        pointer.x >= 0 &&
+        pointer.y >= 0 &&
+        pointer.x <= width &&
+        pointer.y <= height;
     };
 
     const onWindowBlur = () => {
@@ -84,17 +93,31 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
       context.clearRect(0, 0, width, height);
 
       particles.forEach((particle) => {
-        const currentX = particle.baseX + Math.cos(time * 0.00034 + particle.phase) * particle.drift;
-        const currentY = particle.baseY + Math.sin(time * 0.00027 + particle.phase * 1.71) * particle.drift * 0.72;
+        const currentX =
+          particle.baseX +
+          Math.cos(time * 0.00034 + particle.phase) * particle.drift;
+        const currentY =
+          particle.baseY +
+          Math.sin(time * 0.00027 + particle.phase * 1.71) *
+            particle.drift *
+            0.72;
         const distanceX = particle.x - pointer.x;
         const distanceY = particle.y - pointer.y;
         const distance = Math.hypot(distanceX, distanceY) || 1;
-        const influence = pointer.active && distance < 180 ? (180 - distance) / 180 : 0;
-        const ambientX = Math.cos(time * 0.00062 + particle.phase * 1.4) * 0.055;
+        const influence =
+          pointer.active && distance < 180 ? (180 - distance) / 180 : 0;
+        const ambientX =
+          Math.cos(time * 0.00062 + particle.phase * 1.4) * 0.055;
         const ambientY = Math.sin(time * 0.00048 + particle.phase) * 0.055;
 
-        particle.vx += (currentX - particle.x) * 0.011 + (distanceX / distance) * influence * 0.88 + ambientX;
-        particle.vy += (currentY - particle.y) * 0.011 + (distanceY / distance) * influence * 0.88 + ambientY;
+        particle.vx +=
+          (currentX - particle.x) * 0.011 +
+          (distanceX / distance) * influence * 0.88 +
+          ambientX;
+        particle.vy +=
+          (currentY - particle.y) * 0.011 +
+          (distanceY / distance) * influence * 0.88 +
+          ambientY;
         particle.vx *= 0.9;
         particle.vy *= 0.9;
         particle.x += particle.vx;
@@ -102,7 +125,13 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
 
         context.beginPath();
         context.fillStyle = `rgba(${PRIMARY}, ${0.58 + influence * 0.34})`;
-        context.arc(particle.x, particle.y, particle.size + influence * 0.85, 0, Math.PI * 2);
+        context.arc(
+          particle.x,
+          particle.y,
+          particle.size + influence * 0.85,
+          0,
+          Math.PI * 2,
+        );
         context.fill();
       });
 
@@ -124,5 +153,7 @@ export function ParticleField({ particleCount = 180 }: ParticleFieldProps) {
     };
   }, [particleCount]);
 
-  return <canvas ref={canvasRef} className="particle-field" aria-hidden="true" />;
+  return (
+    <canvas ref={canvasRef} className="particle-field" aria-hidden="true" />
+  );
 }

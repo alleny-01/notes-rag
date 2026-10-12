@@ -1,9 +1,27 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import { FileText, LoaderCircle } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
-import type { ChatCitation, Collection, CollectionDocument } from "../../features/collections/types/domain";
+import type {
+  ChatCitation,
+  Collection,
+  CollectionDocument,
+} from "../../features/collections/types/domain";
 
-const PdfSourceViewer = lazy(() => import("./PdfSourceViewer").then((module) => ({ default: module.PdfSourceViewer })));
+const ImagePageViewer = lazy(() =>
+  import("./ImagePageViewer").then((module) => ({
+    default: module.ImagePageViewer,
+  })),
+);
 
 type SourceViewerProps = {
   collection: Collection;
@@ -12,8 +30,8 @@ type SourceViewerProps = {
 };
 
 type SourceState =
-  | { status: "loading"; url?: undefined; text?: undefined }
-  | { status: "ready"; url?: string; text?: string }
+  | { status: "loading"; text?: undefined }
+  | { status: "ready"; text?: string }
   | { status: "error"; message: string };
 
 type TextToken = {
@@ -39,10 +57,11 @@ function claimTokens(value: string) {
 }
 
 function pageTokens(viewport: HTMLElement) {
-  const textLayer = viewport.querySelector(".react-pdf__Page__textContent") ?? viewport;
-
   const tokens: TextToken[] = [];
-  const walker = window.document.createTreeWalker(textLayer, NodeFilter.SHOW_TEXT);
+  const walker = window.document.createTreeWalker(
+    viewport,
+    NodeFilter.SHOW_TEXT,
+  );
   let current = walker.nextNode();
   while (current) {
     const node = current as Text;
@@ -65,9 +84,18 @@ function rangeForExactClaim(source: TextToken[], target: string) {
   const claim = claimTokens(target);
   if (claim.length < 2) return null;
 
-  for (let sourceIndex = 0; sourceIndex <= source.length - claim.length; sourceIndex += 1) {
+  for (
+    let sourceIndex = 0;
+    sourceIndex <= source.length - claim.length;
+    sourceIndex += 1
+  ) {
     if (source[sourceIndex].value !== claim[0]) continue;
-    if (!claim.every((word, offset) => source[sourceIndex + offset]?.value === word)) continue;
+    if (
+      !claim.every(
+        (word, offset) => source[sourceIndex + offset]?.value === word,
+      )
+    )
+      continue;
 
     const range = window.document.createRange();
     range.setStart(source[sourceIndex].node, source[sourceIndex].start);
@@ -87,7 +115,12 @@ function rangeForNearClaim(source: TextToken[], target: string) {
   const claim = claimTokens(target);
   if (claim.length < 4) return null;
 
-  let best: { start: number; end: number; matched: number; score: number } | null = null;
+  let best: {
+    start: number;
+    end: number;
+    matched: number;
+    score: number;
+  } | null = null;
   const initialTargets = Math.min(7, claim.length);
 
   for (let claimStart = 0; claimStart < initialTargets; claimStart += 1) {
@@ -98,7 +131,11 @@ function rangeForNearClaim(source: TextToken[], target: string) {
       let first = sourceStart;
       let last = sourceStart;
       let matched = 0;
-      for (let targetIndex = claimStart; targetIndex < claim.length; targetIndex += 1) {
+      for (
+        let targetIndex = claimStart;
+        targetIndex < claim.length;
+        targetIndex += 1
+      ) {
         const limit = Math.min(source.length, cursor + 13);
         let found = -1;
         for (let sourceIndex = cursor; sourceIndex < limit; sourceIndex += 1) {
@@ -118,7 +155,8 @@ function rangeForNearClaim(source: TextToken[], target: string) {
       const span = last - first + 1;
       if (coverage < 0.88 || span > claim.length * 1.35 + 6) continue;
       const score = matched * 3 - span * 0.12 - claimStart * 0.4;
-      if (!best || score > best.score) best = { start: first, end: last, matched, score };
+      if (!best || score > best.score)
+        best = { start: first, end: last, matched, score };
     }
   }
 
@@ -138,7 +176,10 @@ function SourceLoading({ label }: { label: string }) {
   return (
     <div className="grid min-h-[420px] place-items-center px-6 text-center">
       <div>
-        <LoaderCircle className="mx-auto size-5 animate-[spin_1.35s_linear_infinite] text-[var(--purple)] motion-reduce:animate-none" strokeWidth={1} />
+        <LoaderCircle
+          className="mx-auto size-5 animate-[spin_1.35s_linear_infinite] text-[var(--purple)] motion-reduce:animate-none"
+          strokeWidth={1}
+        />
         <p className="mt-3 text-[11px] text-[var(--muted)]">{label}</p>
       </div>
     </div>
@@ -150,8 +191,10 @@ function readBlobText(blob: Blob) {
 
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("We could not read this note."));
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("We could not read this note."));
+    reader.onload = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
     reader.readAsText(blob);
   });
 }
@@ -160,7 +203,8 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
   if (!citation) {
     return (
       <div className="mx-4 mt-4 bg-[rgba(95,61,130,0.06)] px-3.5 py-3 text-[12px] leading-5 text-[var(--body)]">
-        Select an inline citation in the conversation to locate its exact supporting text.
+        Select an inline citation in the conversation to locate its exact
+        supporting text.
       </div>
     );
   }
@@ -168,7 +212,8 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
   return (
     <aside className="mx-4 mt-4 min-w-0 bg-[rgba(156,115,200,0.14)] px-3.5 py-3 shadow-[inset_3px_0_0_var(--purple)]">
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--purple)]">
-        Cited evidence{citation.pageNumber ? ` · page ${citation.pageNumber}` : ""}
+        Cited evidence
+        {citation.pageNumber ? ` · page ${citation.pageNumber}` : ""}
       </p>
       <p className="mt-2 break-words font-[var(--serif)] text-[14px] leading-6 text-[#4d3a56]">
         {citation.highlightText ?? citation.content.replace(/^\s*\d+\s+/, "")}
@@ -177,7 +222,10 @@ function CitedPassage({ citation }: { citation: ChatCitation | null }) {
   );
 }
 
-class PdfViewerErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { error: Error | null }> {
+class PdfViewerErrorBoundary extends Component<
+  { children: ReactNode; resetKey: string },
+  { error: Error | null }
+> {
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
@@ -189,12 +237,19 @@ class PdfViewerErrorBoundary extends Component<{ children: ReactNode; resetKey: 
   }
 
   componentDidUpdate(previous: { resetKey: string }) {
-    if (previous.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null });
+    if (previous.resetKey !== this.props.resetKey && this.state.error)
+      this.setState({ error: null });
   }
 
   render() {
     if (!this.state.error) return this.props.children;
-    return <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">PDF viewer crashed: {this.state.error.message}</p></div>;
+    return (
+      <div className="grid min-h-[420px] place-items-center px-6 text-center">
+        <p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">
+          PDF viewer crashed: {this.state.error.message}
+        </p>
+      </div>
+    );
   }
 }
 
@@ -212,7 +267,8 @@ function TextSource({
   const textScrollRef = useRef<HTMLDivElement>(null);
   const textViewportRef = useRef<HTMLDivElement>(null);
   const highlightLayerRef = useRef<HTMLDivElement>(null);
-  const activeCitation = citation?.documentId === sourceDocument.id ? citation : null;
+  const activeCitation =
+    citation?.documentId === sourceDocument.id ? citation : null;
 
   useEffect(() => {
     const viewport = textViewportRef.current;
@@ -233,7 +289,9 @@ function TextSource({
     }
 
     const viewportRect = viewport.getBoundingClientRect();
-    const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    const rects = Array.from(range.getClientRects()).filter(
+      (rect) => rect.width > 0 && rect.height > 0,
+    );
     let firstHighlight: HTMLElement | null = null;
     for (const rect of rects) {
       const highlight = window.document.createElement("span");
@@ -258,37 +316,65 @@ function TextSource({
     onHighlightAnchorChange?.(firstHighlight);
     const destination = Math.max(
       0,
-      firstRect.top - scrollArea.getBoundingClientRect().top + scrollArea.scrollTop - scrollArea.clientHeight * 0.32,
+      firstRect.top -
+        scrollArea.getBoundingClientRect().top +
+        scrollArea.scrollTop -
+        scrollArea.clientHeight * 0.32,
     );
     const frame = window.requestAnimationFrame(() => {
       scrollArea.scrollTo({ top: destination, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeCitation?.chunkId, activeCitation?.highlightText, onHighlightAnchorChange, sourceText]);
+  }, [
+    activeCitation?.chunkId,
+    activeCitation?.highlightText,
+    onHighlightAnchorChange,
+    sourceText,
+  ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <CitedPassage citation={activeCitation} />
-      <div ref={textScrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div ref={textViewportRef} className="relative mx-auto w-full min-w-0 max-w-3xl">
+      <div
+        ref={textScrollRef}
+        className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#e9e1d4] px-4 py-5 [overscroll-behavior-x:none] touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div
+          ref={textViewportRef}
+          className="relative mx-auto w-full min-w-0 max-w-3xl"
+        >
           <pre className="w-full min-w-0 whitespace-pre-wrap break-words bg-white px-6 py-7 font-[var(--serif)] text-[14px] leading-7 text-[#574a45] shadow-[0_12px_26px_rgba(66,47,39,0.12)] sm:px-8">
             {sourceText}
           </pre>
-          <div ref={highlightLayerRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1]" />
+          <div
+            ref={highlightLayerRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[1]"
+          />
         </div>
       </div>
     </div>
   );
 }
 
-export function SourceViewer({ collection, citation, onHighlightAnchorChange }: SourceViewerProps) {
+export function SourceViewer({
+  collection,
+  citation,
+  onHighlightAnchorChange,
+}: SourceViewerProps) {
   const sourceDocuments = useMemo(
-    () => collection.documents.filter((sourceDocument) => sourceDocument.status === "ready"),
+    () =>
+      collection.documents.filter(
+        (sourceDocument) => sourceDocument.status === "ready",
+      ),
     [collection.documents],
   );
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>();
   const [source, setSource] = useState<SourceState>({ status: "loading" });
-  const selectedDocument = sourceDocuments.find((sourceDocument) => sourceDocument.id === selectedDocumentId) ?? sourceDocuments[0];
+  const selectedDocument =
+    sourceDocuments.find(
+      (sourceDocument) => sourceDocument.id === selectedDocumentId,
+    ) ?? sourceDocuments[0];
 
   useEffect(() => {
     if (citation?.documentId) setSelectedDocumentId(citation.documentId);
@@ -300,22 +386,19 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
     setSource({ status: "loading" });
     const load = async () => {
       if (isPdf(selectedDocument)) {
-        const { data, error } = await supabase.storage
-          .from("notes-documents")
-          .createSignedUrl(selectedDocument.storagePath, 60 * 60);
-        if (!active) return;
-        if (error || !data?.signedUrl) {
-          setSource({ status: "error", message: error?.message ?? "We could not open this document." });
-          return;
-        }
-        setSource({ status: "ready", url: data.signedUrl });
+        if (active) setSource({ status: "ready" });
         return;
       }
 
-      const { data, error } = await supabase.storage.from("notes-documents").download(selectedDocument.storagePath);
+      const { data, error } = await supabase.storage
+        .from("notes-documents")
+        .download(selectedDocument.storagePath);
       if (!active) return;
       if (error || !data) {
-        setSource({ status: "error", message: error?.message ?? "We could not open this note." });
+        setSource({
+          status: "error",
+          message: error?.message ?? "We could not open this note.",
+        });
         return;
       }
       const text = await readBlobText(data);
@@ -323,16 +406,24 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
       setSource({ status: "ready", text });
     };
     void load();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [selectedDocument?.id, selectedDocument?.storagePath]);
 
   if (!selectedDocument) {
     return (
       <section className="grid min-h-[420px] place-items-center bg-[#f5f0e8] p-8 text-center text-[#332c2d]">
         <div>
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e9dfd1] text-[var(--purple)]"><FileText size={20} strokeWidth={1} /></div>
-          <h2 className="mt-4 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.055em]">No notes to read yet.</h2>
-          <p className="mt-3 max-w-xs text-[13px] leading-6 text-[#756b64]">Add a text-based PDF or note before opening a conversation.</p>
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e9dfd1] text-[var(--purple)]">
+            <FileText size={20} strokeWidth={1} />
+          </div>
+          <h2 className="mt-4 font-[var(--serif)] text-[15px] font-light leading-none tracking-[-0.055em]">
+            No notes to read yet.
+          </h2>
+          <p className="mt-3 max-w-xs text-[13px] leading-6 text-[#756b64]">
+            Add a text-based PDF or note before opening a conversation.
+          </p>
         </div>
       </section>
     );
@@ -342,29 +433,54 @@ export function SourceViewer({ collection, citation, onHighlightAnchorChange }: 
     <section className="flex h-full min-h-[420px] w-full max-w-full flex-col overflow-x-hidden bg-[#f5f0e8] text-[#332c2d]">
       <div className="flex min-h-12 items-center gap-3 bg-[rgba(223,212,197,0.45)] px-4">
         <FileText size={14} className="shrink-0" strokeWidth={1} />
-        <label htmlFor="source-document" className="sr-only">Source document</label>
+        <label htmlFor="source-document" className="sr-only">
+          Source document
+        </label>
         <select
           id="source-document"
           value={selectedDocument.id}
           onChange={(event) => setSelectedDocumentId(event.target.value)}
           className="min-w-0 flex-1 truncate bg-transparent text-[11px] text-[#776d65] outline-none"
         >
-          {sourceDocuments.map((sourceDocument) => <option key={sourceDocument.id} value={sourceDocument.id}>{sourceDocument.filename}</option>)}
+          {sourceDocuments.map((sourceDocument) => (
+            <option key={sourceDocument.id} value={sourceDocument.id}>
+              {sourceDocument.filename}
+            </option>
+          ))}
         </select>
-        <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-[#91857a]">Source</span>
+        <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-[#91857a]">
+          Source
+        </span>
       </div>
-      {source.status === "loading" && <SourceLoading label="Opening your source…" />}
-      {source.status === "error" && (
-        <div className="grid min-h-[420px] place-items-center px-6 text-center"><p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">{source.message}</p></div>
+      {source.status === "loading" && (
+        <SourceLoading label="Opening your source…" />
       )}
-      {source.status === "ready" && isPdf(selectedDocument) && source.url && (
-        <PdfViewerErrorBoundary resetKey={`${selectedDocument.id}:${source.url}`}>
+      {source.status === "error" && (
+        <div className="grid min-h-[420px] place-items-center px-6 text-center">
+          <p className="max-w-xs text-[12px] leading-5 text-[var(--signal)]">
+            {source.message}
+          </p>
+        </div>
+      )}
+      {source.status === "ready" && isPdf(selectedDocument) && (
+        <PdfViewerErrorBoundary resetKey={selectedDocument.id}>
           <Suspense fallback={<SourceLoading label="Loading PDF viewer…" />}>
-            <PdfSourceViewer sourceDocument={selectedDocument} citation={citation} sourceUrl={source.url} onHighlightAnchorChange={onHighlightAnchorChange} />
+            <ImagePageViewer
+              sourceDocument={selectedDocument}
+              citation={citation}
+              onHighlightAnchorChange={onHighlightAnchorChange}
+            />
           </Suspense>
         </PdfViewerErrorBoundary>
       )}
-      {source.status === "ready" && !isPdf(selectedDocument) && <TextSource sourceDocument={selectedDocument} citation={citation} sourceText={source.text ?? ""} onHighlightAnchorChange={onHighlightAnchorChange} />}
+      {source.status === "ready" && !isPdf(selectedDocument) && (
+        <TextSource
+          sourceDocument={selectedDocument}
+          citation={citation}
+          sourceText={source.text ?? ""}
+          onHighlightAnchorChange={onHighlightAnchorChange}
+        />
+      )}
     </section>
   );
 }
