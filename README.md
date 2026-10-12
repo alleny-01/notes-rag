@@ -1,129 +1,109 @@
-# NotesRAG
+### NotesRAG
 
-NotesRAG is a source-grounded study workspace for your course notes. Upload a text-based PDF, Markdown file, or plain-text note; ask a question; and inspect the exact cited source passage before trusting an answer.
+[![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Vercel](https://img.shields.io/badge/Vercel-Serverless-000000?logo=vercel&logoColor=white)](https://vercel.com/)
 
-## What it does
+> A source-grounded study workspace that lets students ask questions about their own notes and inspect the exact passage behind every answer.
 
-- Organises documents into private study collections.
-- Prepares PDFs on a server-side Node runtime, so browser PDF compatibility is not a dependency for uploads or source viewing.
-- Retrieves only passages from the current collection before generating a DeepSeek Flash answer.
-- Stores the actual retrieved chunk IDs as citations instead of trusting free-form model citation claims.
-- Opens the cited PDF/TXT/Markdown source and highlights the claim used in the answer. Desktop workspaces animate a live connector from citation to source.
-- Supports concise study questions, multi-part questions, and multiple-choice prompts with supplied options.
-- Enforces a per-user daily message cap before retrieval or model generation.
+NotesRAG is designed around one principle: **retrieval decides what is true; generation only phrases it.** Upload a text-based PDF, Markdown file, or plain-text note, then study with answers that remain traceable to the original material.
 
-## Supported uploads
+### Highlights
 
-| Format | Support | Notes                                                                          |
-| ------ | ------- | ------------------------------------------------------------------------------ |
-| `.pdf` | Yes     | Must have selectable text. Scanned/image-only PDFs are intentionally rejected. |
-| `.txt` | Yes     | Plain text.                                                                    |
-| `.md`  | Yes     | Markdown is stored and read as text.                                           |
+| Capability                | What it means                                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Private collections**   | Keep course materials, revision packs, and project notes organised by topic.                                      |
+| **Grounded answers**      | Answers are generated only from retrieved passages in the active collection.                                      |
+| **Claim-level citations** | Citation chips open the source and highlight the exact matching words, not just an entire chunk.                  |
+| **Honest gaps**           | When the material does not support an answer, NotesRAG clearly says so without calling the language model.        |
+| **Built for study flow**  | Ask follow-up questions, use starter prompts, solve option-based questions, and clear chats when beginning again. |
+| **Responsive workspace**  | Chat and source material sit side-by-side on desktop; mobile uses focused, touch-friendly views.                  |
 
-Uploads are limited to 20 MB per file in this MVP.
+### Supported sources
 
-## Architecture
+| Format     | Status | Notes                                                                                     |
+| ---------- | ------ | ----------------------------------------------------------------------------------------- |
+| PDF        | ✓      | Text-based PDFs with selectable text. Scanned/image-only PDFs are intentionally rejected. |
+| Markdown   | ✓      | `.md` files are indexed as source text.                                                   |
+| Plain text | ✓      | `.txt` notes are indexed as source text.                                                  |
 
-```text
-Browser
-  ├─ stores raw PDF/TXT/Markdown sources in Supabase Storage
-  ├─ calls Vercel's /api/process-pdf for PDFs (JWT-authenticated)
-  │    └─ receives only JPEG page images + normalized word boxes for PDF viewing
-  └─ calls Supabase Edge Functions
-       ├─ ingest-document → chunk → Voyage embeddings → pgvector
-       ├─ retrieve-chunks → similarity search for manual validation
-       └─ chat → daily-cap check → Voyage retrieval → streamed DeepSeek answer
+Files are limited to 20 MB in the MVP.
 
-Supabase
-  ├─ Google Auth + RLS-protected Postgres
-  ├─ Storage buckets: notes-documents (raw sources), notes-pages (server-rendered PDF JPEGs)
-  └─ pgvector chunks, document_pages, chat sessions, messages, citation join rows
+### How it works
+
+```mermaid
+flowchart LR
+  A[Upload source] --> B[Secure storage]
+  B --> C[Extract & chunk]
+  C --> D[Voyage embeddings]
+  D --> E[(Supabase pgvector)]
+  Q[Ask a question] --> R[Retrieve relevant passages]
+  E --> R
+  R --> G[DeepSeek generation]
+  G --> H[Answer + verified citations]
+  H --> I[Highlighted source passage]
 ```
 
-## Local setup
+PDFs are prepared in a Vercel Node function and rendered as page images with normalized word positions. This keeps PDF.js and native canvas work off the browser, avoiding WebKit compatibility failures while retaining precise source highlights.
 
-1. Install dependencies:
+### Product architecture
 
-   ```bash
-   npm install
-   ```
+| Layer           | Responsibilities                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Web app**     | React, TypeScript, Vite, TanStack Query, responsive workspace UI, animations, and client-side session state. |
+| **Supabase**    | Authentication, PostgreSQL with pgvector, Row Level Security, Storage, Realtime, and Edge Functions.         |
+| **Vercel**      | Production frontend hosting and authenticated PDF preparation at `/api/process-pdf`.                         |
+| **AI services** | Voyage for embeddings and DeepSeek for answer generation.                                                    |
 
-2. Copy `.env.example` to `.env` and fill in the public browser values:
+### Trust and safety by design
 
-   ```ini
-   VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
-   ```
+- **Citation integrity is server-owned.** Retrieved chunk IDs are persisted in the `citations` join table; the UI never trusts free-form citation claims from a model.
+- **Retrieval comes before generation.** Below-threshold retrieval returns the dedicated “not found in your notes” state and skips the model request.
+- **RLS protects user data.** Collections, sources, chats, settings, and feedback are scoped to the authenticated user.
+- **Cost controls run first.** A per-user daily message cap is checked before retrieval or model generation.
+- **Secrets stay server-side.** Voyage and DeepSeek keys live only in Supabase Edge Function secrets. Vercel service credentials are used only by its serverless PDF function.
 
-   Never put the Voyage or DeepSeek secret in this file; browser environment values are public after a Vite build.
+### Technical notes
 
-3. Apply the SQL migrations in `supabase/migrations` using the Supabase SQL editor or CLI.
+- No OCR is included in the MVP. A PDF must have a selectable text layer to be indexed reliably.
+- Source highlights resolve against the original words and their coordinates, enabling accurate PDF and text navigation.
+- The PDF duplicate check uses file bytes; Markdown and text use normalized-content hashing.
+- Edge Functions handle ingestion, retrieval validation, chat, usage metering, and account deletion.
 
-4. Set Edge Function secrets in Supabase:
-
-   ```bash
-   npx supabase secrets set VOYAGE_API_KEY=... DEEPSEEK_API_KEY=... DAILY_MESSAGE_LIMIT=50 --project-ref YOUR_PROJECT_REF
-   ```
-
-5. Deploy the functions after a change:
-
-   ```bash
-   npx supabase functions deploy ingest-document --project-ref YOUR_PROJECT_REF
-   npx supabase functions deploy retrieve-chunks --project-ref YOUR_PROJECT_REF
-   npx supabase functions deploy chat --project-ref YOUR_PROJECT_REF
-   npx supabase functions deploy get-usage --project-ref YOUR_PROJECT_REF
-   npx supabase functions deploy delete-account --project-ref YOUR_PROJECT_REF
-   ```
-
-6. For local PDF processing, copy the server-only Vercel values shown in `.env.example` into your local environment, then run the Vercel development server:
-
-   ```bash
-   npx vercel dev
-   ```
-
-   `SUPABASE_SERVICE_ROLE_KEY` must never use a `VITE_` prefix and must never be committed.
-
-7. To run the browser-only interface without PDF processing, use:
-
-   ```bash
-   npm run dev
-   ```
-
-## Verification
+### Development
 
 ```bash
-npm test
+npm install
+npm run dev
+```
+
+Copy [`.env.example`](.env.example) to `.env` and provide only the public browser values:
+
+```ini
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
+
+For a complete local PDF-processing environment, use `npx vercel dev` with the server-only values documented in `.env.example`. Never commit secrets or use a `VITE_` prefix for server credentials.
+
+### Quality checks
+
+```bash
+npm run format:check
 npm run typecheck
+npm test
 npm run build
 ```
 
-Before release, complete this manual flow on both desktop and mobile:
+### Deployment
 
-1. Create a collection and upload a text-based PDF, `.txt`, and `.md` note.
-2. Confirm every document reaches **Ready to chat**.
-3. Ask a known-answer question and a deliberately unsupported question.
-4. Confirm the known answer contains citations; click each citation and verify the exact source claim is highlighted.
-5. Verify Markdown/TXT sources scroll to their highlighted claim and PDFs open their cited page.
-6. Ask one option-based question with choices, and confirm the selected option is source-grounded.
-7. Confirm the daily limit returns the dedicated limit state and does not call the model.
-8. Check 375px, 768px, 1024px, 1280px, and 1440px widths for no horizontal overflow.
+1. Apply pending Supabase migrations with `npx supabase db push` after checking the migration plan.
+2. Deploy the Supabase functions: `ingest-document`, `retrieve-chunks`, `chat`, `get-usage`, and `delete-account`.
+3. Configure the Vercel environment variables listed in `.env.example`, including the server-only Supabase values used by PDF processing.
+4. Configure Supabase Auth with the production site URL and allowed Vercel redirect URLs for magic-link and Google sign-in.
+5. Push `main` to create the production Vercel deployment.
 
-## Decisions and trade-offs
+### License
 
-- **Retrieval is truth.** The generator receives only retrieved passages. If retrieval does not meet the similarity threshold, NotesRAG returns a deliberate “not found in your notes” state instead of asking the model to guess.
-- **Citation integrity is server-owned.** `citations` records the retrieved chunk IDs and passage order. The UI maps model `[n]` markers onto those stored chunks; it does not infer citations from arbitrary prose.
-- **No OCR in the MVP.** Image-only PDFs are rendered server-side but still have no reliable selectable text to embed, so they are rejected until OCR can be supported honestly.
-- **Server-rendered PDFs.** PDF.js and the native canvas renderer run only in Vercel's Node function. The browser receives JPEG pages and normalized word boxes, which avoids WebKit PDF.js crashes while retaining claim-level citation highlights.
-- **PDF duplicate trade-off.** PDFs now hash the raw file bytes rather than normalized extracted text. A re-export of identical text can therefore be treated as a new PDF; TXT and Markdown retain normalized-text deduplication.
-- **Daily cap before cost.** `usage_daily` increments before retrieval and DeepSeek, preventing one account from driving uncapped model spend. The documented extension point is a future application-wide cap.
-- **Streaming with persistence.** Tokens stream to the UI for responsiveness. Once the full answer is complete, the answer and its citation join rows are stored together for reliable reloads.
-
-## Deployment checklist
-
-- Run the verification commands above.
-- Confirm Supabase migrations are applied in order.
-- Confirm `notes-documents` Storage policies and RLS policies are enabled.
-- Add the server-only `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` values to Vercel for Production and Preview. Optionally set `MAX_PDF_PAGES` (defaults to 300), and select Node 22.x or newer in Vercel.
-- Set `VOYAGE_API_KEY`, `DEEPSEEK_API_KEY`, and `DAILY_MESSAGE_LIMIT` only as Supabase Edge Function secrets.
-- Deploy `ingest-document`, `retrieve-chunks`, `chat`, `get-usage`, and `delete-account` after their code changes.
-- Configure Google OAuth redirect URLs in both Google Cloud and Supabase Auth before enabling Google sign-in in production.
+This project is currently private and unlicensed.
